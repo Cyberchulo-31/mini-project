@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>For My Princess</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Mulish:wght@400;600;700;800&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#FFF6F3;
@@ -173,31 +175,48 @@
   }
   #meet-countdown{margin-top:12px;font-size:1.05rem;}
 
-  /* ---------- Photo bubbles ---------- */
-  #bubble-field{
-    position:relative;height:420px;overflow:hidden;border-radius:22px;
-    background:linear-gradient(180deg,var(--surface-2),var(--surface));
+  /* ---------- Photos ---------- */
+  #photo-toolbar{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    margin-bottom:12px;
   }
-  .bubble{
-    position:absolute;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;flex-direction:column;
-    color:#fff;text-align:center;font-size:.68rem;font-weight:800;
-    box-shadow:0 10px 22px -10px rgba(0,0,0,.35);
-    cursor:pointer;border:3px solid rgba(255,255,255,.6);
-    animation:floaty linear infinite alternate;padding:6px;
+  #photo-add-btn{display:inline-flex;align-items:center;gap:6px;}
+  #photo-whoami{
+    background:var(--surface-2);border:1.5px solid var(--border);color:var(--accent-deep);
+    padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;font-family:inherit;
+    font-size:.85rem;
   }
-  .bubble svg{width:34%;height:34%;margin-bottom:4px;opacity:.9;}
-  @keyframes floaty{
-    from{transform:translateY(0) translateX(0) rotate(-2deg);}
-    to{transform:translateY(-22px) translateX(10px) rotate(2deg);}
+  #photo-status{font-size:.82rem;color:var(--muted);min-height:1.2em;margin:0 0 10px;}
+  .photo-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;
+  }
+  .photo-card{
+    position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;cursor:pointer;
+    background:var(--surface-2);box-shadow:0 6px 14px -8px rgba(0,0,0,.3);border:none;padding:0;
+  }
+  .photo-card img{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-card .by{
+    position:absolute;left:6px;bottom:6px;background:rgba(30,10,18,.6);color:#fff;
+    font-size:.6rem;font-weight:800;padding:3px 7px;border-radius:999px;
+  }
+  .photo-empty{
+    text-align:center;padding:34px 14px;color:var(--muted);font-size:.9rem;
+    grid-column:1/-1;
   }
   #photo-modal{
-    position:fixed;inset:0;background:rgba(30,10,18,.55);
+    position:fixed;inset:0;background:rgba(30,10,18,.72);
     display:none;align-items:center;justify-content:center;padding:20px;z-index:50;
   }
   #photo-modal.show{display:flex;}
   #photo-modal .box{
-    background:var(--surface);border-radius:20px;padding:22px;max-width:320px;text-align:center;
+    background:var(--surface);border-radius:20px;padding:16px;max-width:min(92vw,480px);text-align:center;
+  }
+  #photo-modal img{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;}
+  #photo-modal .modal-meta{font-size:.8rem;color:var(--muted);margin:10px 0 0;}
+  #photo-modal .modal-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
+  .btn-danger{
+    background:var(--surface-2);border:1.5px solid var(--accent-deep);color:var(--accent-deep);
+    padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;
   }
 
   /* ---------- Puzzle ---------- */
@@ -254,7 +273,7 @@
   }
 
   @media (prefers-reduced-motion: reduce){
-    .bubble,.tab{animation:none;}
+    .tab{animation:none;}
   }
 </style>
 </head>
@@ -331,9 +350,17 @@
     <!-- PHOTOS -->
     <section class="tab" id="tab-photos">
       <div class="card">
-        <p class="eyebrow">Us, floating around</p>
-        <p class="muted" style="font-size:.85rem;margin-top:4px;">Tap a bubble for a little surprise. (Nosa can swap these placeholders for real photos any time.)</p>
-        <div id="bubble-field"></div>
+        <p class="eyebrow">Our photo album</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Add as many photos as you want — you can both add photos here, anytime, from any device.</p>
+        <div id="photo-toolbar">
+          <label class="btn-primary" id="photo-add-btn">
+            + Add Photos
+            <input type="file" id="photo-input" accept="image/*" multiple style="display:none;">
+          </label>
+          <select id="photo-whoami" aria-label="Who's adding photos"></select>
+        </div>
+        <p id="photo-status"></p>
+        <div id="photo-grid" class="photo-grid"></div>
       </div>
     </section>
 
@@ -397,12 +424,12 @@
 
 <div id="photo-modal">
   <div class="box">
-    <svg viewBox="0 0 100 100" width="90" height="90" style="margin:0 auto 10px;display:block;">
-      <circle cx="50" cy="50" r="46" fill="var(--accent-2)"/>
-      <path d="M50 68 C20 48,28 22,50 34 C72 22,80 48,50 68Z" fill="#fff" opacity=".9"/>
-    </svg>
-    <p id="modal-text" style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;"></p>
-    <button class="btn-primary" id="modal-close" type="button">Close</button>
+    <img id="modal-img" src="" alt="">
+    <p class="modal-meta" id="modal-meta"></p>
+    <div class="modal-actions">
+      <button class="btn-danger" id="modal-delete" type="button">Delete</button>
+      <button class="btn-primary" id="modal-close" type="button">Close</button>
+    </div>
   </div>
 </div>
 
@@ -421,18 +448,18 @@
   // Example: { date: '2026-12-25', label: 'Christmas 🎄' }
   var SPECIAL_DATES = [];
 
-  // Photo bubbles — replace any entry's `img` with a real photo data URL
-  // (e.g. "data:image/jpeg;base64,...") to swap in a real picture.
-  var PHOTOS = [
-    {img:null, label:"add me"},
-    {img:null, label:"add me"},
-    {img:null, label:"add me"},
-    {img:null, label:"add me"},
-    {img:null, label:"add me"},
-    {img:null, label:"add me"},
-    {img:null, label:"add me"},
-    {img:null, label:"add me"}
-  ];
+  // Photo sharing (both of you can add unlimited photos, from any device).
+  // Fill these in with your Firebase project's web app config to turn it on —
+  // see the setup instructions Nosa was given. Leave apiKey empty ("") and
+  // the Photos tab will just say sharing isn't set up yet.
+  var FIREBASE_CONFIG = {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+  };
 
   var TODAY_NOTES = [
     "Just so you know — I'm thinking about you right now.",
@@ -562,7 +589,6 @@
         $all(".tab").forEach(function(t){ t.classList.remove("active"); });
         btn.classList.add("active");
         $("#tab-"+btn.dataset.tab).classList.add("active");
-        if(btn.dataset.tab === "photos"){ renderBubbles(); }
       });
     });
 
@@ -578,8 +604,7 @@
     renderBouquet();
     startTogetherClock();
     setupMeetAgain();
-    renderBubbles();
-    setupModal();
+    initPhotoSync();
     setupPuzzle();
     setupCalendar();
     setupColoring();
@@ -761,63 +786,171 @@
   }
 
   /* ============================================================
-     PHOTO BUBBLES
+     PHOTOS (shared album, synced live via Firebase Firestore)
      ============================================================ */
-  var BUBBLE_GRADIENTS = [
-    ["#F3AFC2","#D6577A"], ["#F6D28A","#E8974B"], ["#B7D8A8","#6B8F5A"],
-    ["#A9C6E8","#5C86B8"], ["#E3B7EA","#9C5BC2"], ["#F0A6A6","#C24444"]
-  ];
-  function heartIcon(){
-    return '<svg viewBox="0 0 32 32"><path d="M16 27 C4 18,6 6,16 11 C26 6,28 18,16 27Z" fill="#fff"/></svg>';
-  }
-  function renderBubbles(){
-    var field = $("#bubble-field");
-    field.innerHTML = "";
-    var fw = field.clientWidth || 320, fh = 420;
-    PHOTOS.forEach(function(p, i){
-      var size = 70 + (i%3)*22;
-      var div = document.createElement("div");
-      div.className = "bubble";
-      var grad = BUBBLE_GRADIENTS[i % BUBBLE_GRADIENTS.length];
-      div.style.width = size+"px";
-      div.style.height = size+"px";
-      div.style.left = Math.max(6, Math.min(fw-size-6, (i*97 + 20) % (fw-size-12) )) + "px";
-      div.style.top = (18 + (i*67) % (fh-size-24)) + "px";
-      div.style.animationDuration = (5 + (i%4))+"s";
-      div.style.animationDelay = (i*0.4)+"s";
-      if(p.img){
-        div.style.backgroundImage = "url('"+p.img+"')";
-        div.style.backgroundSize = "cover";
-        div.style.backgroundPosition = "center";
-      } else {
-        div.style.background = "linear-gradient(160deg,"+grad[0]+","+grad[1]+")";
-        div.innerHTML = heartIcon() + '<span>'+p.label+'</span>';
-      }
-      div.addEventListener("click", function(){ openModal(i); });
-      field.appendChild(div);
+  var WHOAMI_KEY = "fmp_whoami";
+  var MAX_FIELD_BYTES = 900000; // stay safely under Firestore's ~1MiB field cap
+  var photoDb = null;
+  var photoUnsub = null;
+  var photosCache = [];
+
+  function initPhotoSync(){
+    var whoSel = $("#photo-whoami");
+    var names = ["Nosa", NICKNAMES[0] || "Her"];
+    whoSel.innerHTML = names.map(function(n){
+      return '<option value="'+n+'">Adding as: '+n+'</option>';
+    }).join("");
+    var savedWho = safeGet(WHOAMI_KEY);
+    if(savedWho && names.indexOf(savedWho) !== -1){ whoSel.value = savedWho; }
+    safeSet(WHOAMI_KEY, whoSel.value);
+    whoSel.addEventListener("change", function(){ safeSet(WHOAMI_KEY, whoSel.value); });
+
+    $("#photo-input").addEventListener("change", function(e){
+      var files = Array.prototype.slice.call(e.target.files || []);
+      e.target.value = "";
+      if(files.length) handleNewPhotos(files, whoSel.value);
     });
-  }
-  var BUBBLE_MESSAGES = [
-    "This spot's saved for a photo of your smile.",
-    "One day this bubble will have us in it.",
-    "Send Nosa a favorite photo to fill this one in!",
-    "A memory is waiting to go right here.",
-    "This one's reserved for something silly you two did.",
-    "Future photo spot. No pressure, whenever you're ready.",
-    "This bubble is thinking about you already.",
-    "Every empty bubble is just a memory not made yet."
-  ];
-  function setupModal(){
+
     $("#modal-close").addEventListener("click", function(){
       $("#photo-modal").classList.remove("show");
     });
     $("#photo-modal").addEventListener("click", function(e){
       if(e.target.id === "photo-modal") $("#photo-modal").classList.remove("show");
     });
+    $("#modal-delete").addEventListener("click", function(){
+      var id = $("#photo-modal").dataset.photoId;
+      if(id) deletePhoto(id);
+      $("#photo-modal").classList.remove("show");
+    });
+
+    if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)){
+      renderPhotoMessage("Photo sharing isn't set up yet. Ask Nosa to finish connecting it — once he does, you'll both be able to add photos here from any device. 💗");
+      return;
+    }
+    if(!window.firebase){
+      renderPhotoMessage("Photo sharing couldn't load — check your internet connection and reload the page.");
+      return;
+    }
+    try {
+      if(!firebase.apps.length){ firebase.initializeApp(FIREBASE_CONFIG); }
+      photoDb = firebase.firestore();
+      subscribeToPhotos();
+    } catch(err){
+      renderPhotoMessage("Photo sharing couldn't start (" + (err && err.message ? err.message : "unknown error") + ").");
+    }
   }
-  function openModal(i){
-    $("#modal-text").textContent = BUBBLE_MESSAGES[i % BUBBLE_MESSAGES.length];
-    $("#photo-modal").classList.add("show");
+
+  function subscribeToPhotos(){
+    $("#photo-status").textContent = "Loading photos…";
+    if(photoUnsub) photoUnsub();
+    photoUnsub = photoDb.collection("photos").orderBy("ts","desc").onSnapshot(function(snap){
+      photosCache = [];
+      snap.forEach(function(doc){
+        var d = doc.data();
+        photosCache.push({ id: doc.id, img: d.img, addedBy: d.addedBy, ts: d.ts });
+      });
+      renderPhotoGallery();
+    }, function(err){
+      renderPhotoMessage("Couldn't load photos (" + (err && err.message ? err.message : "unknown error") + ").");
+    });
+  }
+
+  function renderPhotoMessage(msg){
+    $("#photo-status").textContent = "";
+    $("#photo-grid").innerHTML = '<div class="photo-empty">'+msg+'</div>';
+  }
+
+  function renderPhotoGallery(){
+    $("#photo-status").textContent = photosCache.length ?
+      (photosCache.length + " photo" + (photosCache.length===1?"":"s")) : "";
+    if(!photosCache.length){
+      $("#photo-grid").innerHTML = '<div class="photo-empty">No photos yet — tap "+ Add Photos" to start filling this up. 💗</div>';
+      return;
+    }
+    $("#photo-grid").innerHTML = photosCache.map(function(p){
+      return '<button class="photo-card" type="button" data-id="'+p.id+'"><img src="'+p.img+'" loading="lazy" alt="">' +
+        (p.addedBy ? '<span class="by">'+p.addedBy+'</span>' : '') + '</button>';
+    }).join("");
+    $all(".photo-card").forEach(function(card){
+      card.addEventListener("click", function(){
+        var photo = photosCache.filter(function(p){ return p.id === card.dataset.id; })[0];
+        if(!photo) return;
+        $("#modal-img").src = photo.img;
+        $("#modal-meta").textContent = photo.addedBy ? ("Added by " + photo.addedBy) : "";
+        $("#photo-modal").dataset.photoId = photo.id;
+        $("#photo-modal").classList.add("show");
+      });
+    });
+  }
+
+  function deletePhoto(id){
+    if(!photoDb || !id) return;
+    photoDb.collection("photos").doc(id).delete().catch(function(){});
+  }
+
+  function handleNewPhotos(files, who){
+    if(!photoDb){ return; }
+    $("#photo-status").textContent = "Adding " + files.length + " photo" + (files.length===1?"":"s") + "…";
+    var remaining = files.length, hadError = false;
+    files.forEach(function(file){
+      compressImageFile(file, function(dataUrl, err){
+        remaining--;
+        if(err || !dataUrl){
+          hadError = true;
+        } else {
+          photoDb.collection("photos").add({
+            img: dataUrl,
+            addedBy: who || "",
+            ts: Date.now()
+          }).catch(function(){ hadError = true; });
+        }
+        if(remaining === 0){
+          $("#photo-status").textContent = hadError ?
+            "Added what we could — one or two photos didn't make it, try again with those." : "";
+        }
+      });
+    });
+  }
+
+  // Resize + compress an image file on a <canvas> and hand back a JPEG
+  // data URL small enough to store directly as a Firestore field.
+  function compressImageFile(file, cb){
+    var reader = new FileReader();
+    reader.onerror = function(){ cb(null, true); };
+    reader.onload = function(){
+      var img = new Image();
+      img.onerror = function(){ cb(null, true); };
+      img.onload = function(){
+        var maxDim = 1000;
+        var w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w >= h){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else { w = Math.round(w*maxDim/h); h = maxDim; }
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        var quality = 0.75;
+        var dataUrl = canvas.toDataURL("image/jpeg", quality);
+        var attempts = 0;
+        while(dataUrl.length > MAX_FIELD_BYTES && attempts < 8){
+          quality -= 0.12;
+          if(quality < 0.35){
+            w = Math.round(w*0.8); h = Math.round(h*0.8);
+            canvas.width = w; canvas.height = h;
+            ctx.drawImage(img, 0, 0, w, h);
+            quality = 0.6;
+          }
+          dataUrl = canvas.toDataURL("image/jpeg", Math.max(quality,0.35));
+          attempts++;
+        }
+        cb(dataUrl.length <= MAX_FIELD_BYTES ? dataUrl : null, dataUrl.length > MAX_FIELD_BYTES);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   /* ============================================================
