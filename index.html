@@ -366,6 +366,7 @@
           <button class="btn-ghost" id="apart-save" type="button">Save</button>
         </div>
         <div id="apart-countdown"></div>
+        <div class="stat-grid" id="apart-stats"></div>
       </div>
     </section>
 
@@ -918,6 +919,7 @@
     var input = $("#apart-date");
     var saveBtn = $("#apart-save");
     var el = $("#apart-countdown");
+    var statsEl = $("#apart-stats");
 
     function persistApartState(){
       if(firebaseReady && db){
@@ -937,6 +939,7 @@
     function renderApartCountdown(){
       if(!apartState.lastTogether){
         el.textContent = "Add the last day we were together to start tracking 💭";
+        statsEl.innerHTML = "";
         return;
       }
       var parts = apartState.lastTogether.split("-").map(Number);
@@ -949,6 +952,18 @@
       } else {
         el.innerHTML = "It's been <span class=\"num\">"+days+"</span> day"+(days===1?"":"s")+" since we were last together 💭";
       }
+
+      // live ticking timer underneath — same style as the "Us, so far" clock
+      var p = diffParts(last, new Date());
+      var stats = [
+        {n:p.y, l:"Years"},
+        {n:p.mo, l:"Months"},
+        {n:p.d, l:"Days"},
+        {n:pad2(p.h)+":"+pad2(p.mi)+":"+pad2(p.s), l:"Hrs : Min : Sec"}
+      ];
+      statsEl.innerHTML = stats.map(function(s){
+        return '<div class="stat-pill"><div class="n num">'+s.n+'</div><div class="l">'+s.l+'</div></div>';
+      }).join("");
     }
 
     function saveFromInput(){
@@ -978,7 +993,7 @@
     }
 
     renderApartCountdown();
-    setInterval(renderApartCountdown, 60000);
+    setInterval(renderApartCountdown, 1000);
   }
 
   /* ============================================================
