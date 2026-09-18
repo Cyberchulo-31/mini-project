@@ -632,6 +632,7 @@
         $all(".tab").forEach(function(t){ t.classList.remove("active"); });
         btn.classList.add("active");
         $("#tab-"+btn.dataset.tab).classList.add("active");
+        if(btn.dataset.tab === "photos"){ startSlideshow(); }
       });
     });
 
@@ -1060,6 +1061,17 @@
   var slideshowTimer = null;
   var SLIDESHOW_IMAGE_MS = 4000;
 
+  // Starts the slideshow from the first memory — used both by the button
+  // and by opening the Memories tab itself. Does nothing if a slideshow is
+  // already running, or there's nothing to show yet.
+  function startSlideshow(){
+    if(slideshowOn) return;
+    if(!photosCache.length) return;
+    slideshowOn = true;
+    $("#slideshow-btn").textContent = "⏸ Stop Slideshow";
+    openModalAt(0);
+  }
+
   function initPhotoSync(){
     var whoSel = $("#photo-whoami");
     var names = ["Nosa", NICKNAMES[0] || "Her"];
@@ -1079,10 +1091,7 @@
 
     $("#slideshow-btn").addEventListener("click", function(){
       if(slideshowOn){ closeModal(); return; }
-      if(!photosCache.length) return;
-      slideshowOn = true;
-      $("#slideshow-btn").textContent = "⏸ Stop Slideshow";
-      openModalAt(0);
+      startSlideshow();
     });
 
     $("#modal-prev").addEventListener("click", showPrevMemory);
