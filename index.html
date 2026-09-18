@@ -173,7 +173,7 @@
     background:var(--surface-2);border:1.5px solid var(--border);color:var(--accent-deep);
     padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;
   }
-  #meet-countdown{margin-top:12px;font-size:1.05rem;}
+  #meet-countdown,#apart-countdown{margin-top:12px;font-size:1.05rem;}
 
   /* ---------- Photos ---------- */
   #photo-toolbar{
@@ -354,6 +354,19 @@
         </div>
         <div id="meet-countdown"></div>
       </div>
+
+      <div class="card">
+        <p class="eyebrow">Time apart</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:2px;">Update this with the last day we were physically together — whenever we part, or agree on a next visit.</p>
+        <div class="meet-row">
+          <div>
+            <label for="apart-date">Last day we were together</label>
+            <input type="date" id="apart-date">
+          </div>
+          <button class="btn-ghost" id="apart-save" type="button">Save</button>
+        </div>
+        <div id="apart-countdown"></div>
+      </div>
     </section>
 
     <!-- PHOTOS -->
@@ -458,6 +471,9 @@
   var SPECIAL_DATES = [];
 
   // Photo sharing (both of you can add unlimited photos, from any device).
+  // Fill these in with your Firebase project's web app config to turn it on —
+  // see the setup instructions Nosa was given. Leave apiKey empty ("") and
+  // the Photos tab will just say sharing isn't set up yet.
   var FIREBASE_CONFIG = {
     apiKey: "AIzaSyApE7E1KJvy5nEkiMcfwR7wouhK70xI_R4",
     authDomain: "mini-project-dfb4c.firebaseapp.com",
@@ -610,6 +626,7 @@
     renderBouquet();
     startTogetherClock();
     setupMeetAgain();
+    setupTimeApart();
     initPhotoSync();
     setupPuzzle();
     setupCalendar();
@@ -773,15 +790,29 @@
 
   /* ============================================================
      MEET-AGAIN COUNTDOWN
-     Saves automatically as you type (no button needed), and once a
-     date passes it's kept as "last seen" instead of disappearing —
-     synced across both of your devices when Firebase is set up,
-     or remembered on this device only otherwise.
+     Saves automatically as you type (no button needed). Display is
+     kept simple — just the number of days left. The date itself is
+     also dropped onto the Calendar tab automatically, so it isn't
+     lost even though it's not spelled out here. Once the date
+     arrives, it's remembered internally (and kept marked on the
+     calendar) as the day you met — synced across both of your
+     devices when Firebase is set up, or remembered on this device
+     only otherwise.
      ============================================================ */
   var MEET_NEXT_KEY = "fmp_meet_next";
   var MEET_LAST_KEY = "fmp_meet_last";
   var meetState = { nextDate: null, lastMetDate: null };
   var meetSaveTimer = null;
+
+  function updateMeetCalendarMarks(){
+    dynamicSpecialDates = {};
+    if(meetState.nextDate){
+      dynamicSpecialDates[meetState.nextDate.slice(0,10)] = "💌 See you";
+    } else if(meetState.lastMetDate){
+      dynamicSpecialDates[meetState.lastMetDate.slice(0,10)] = "💗 Day we met";
+    }
+    renderCalendar();
+  }
 
   function setupMeetAgain(){
     var input = $("#meet-date");
@@ -809,36 +840,29 @@
       input.value = meetState.nextDate || "";
     }
 
-    function renderLastMet(){
-      var d = new Date(meetState.lastMetDate);
-      var nice = isNaN(d.getTime()) ? meetState.lastMetDate :
-        d.toLocaleDateString(undefined,{weekday:"long", month:"long", day:"numeric", year:"numeric"});
-      el.innerHTML = "We last saw each other on <strong>"+nice+"</strong>. Tell me when we're meeting again 💌";
-    }
-
     function renderMeetCountdown(){
       if(meetState.nextDate){
         var target = new Date(meetState.nextDate);
         var ms = target - new Date();
         if(ms > 0){
-          var totalSec = Math.floor(ms/1000);
-          var d = Math.floor(totalSec/86400);
-          var h = Math.floor((totalSec%86400)/3600);
-          var mi = Math.floor((totalSec%3600)/60);
-          var s = totalSec%60;
-          el.innerHTML = '<span class="num">'+d+'</span>d <span class="num">'+pad2(h)+'</span>h '+
-            '<span class="num">'+pad2(mi)+'</span>m <span class="num">'+pad2(s)+'</span>s until I see you again';
+          var d = Math.floor(ms/86400000);
+          if(d > 0){
+            el.innerHTML = '<span class="num">'+d+'</span> day'+(d===1?"":"s")+' until I see you again 💗';
+          } else {
+            el.innerHTML = "Today's the day — I get to see you soon 💗";
+          }
         } else {
-          // the date has arrived/passed — keep it as a "last seen" record
-          // instead of losing it, and clear the field for the next one
+          // the date has arrived/passed — remember it as the day you met
+          // (stays marked on the calendar) and clear the field so a new
+          // date can be set for next time
           meetState.lastMetDate = meetState.nextDate;
           meetState.nextDate = null;
           persistMeetState();
           syncInputFromState();
-          renderLastMet();
+          updateMeetCalendarMarks();
+          renderMeetCountdown();
+          return;
         }
-      } else if(meetState.lastMetDate){
-        renderLastMet();
       } else {
         el.textContent = "Tell me when we see each other next 💌";
       }
@@ -849,6 +873,7 @@
       if(!v) return;
       meetState.nextDate = v;
       persistMeetState();
+      updateMeetCalendarMarks();
       renderMeetCountdown();
     }
 
@@ -864,16 +889,96 @@
         meetState.nextDate = d.nextDate || null;
         meetState.lastMetDate = d.lastMetDate || null;
         syncInputFromState();
+        updateMeetCalendarMarks();
         renderMeetCountdown();
       }, function(){ /* fall back to whatever's already shown */ });
     } else {
       meetState.nextDate = safeGet(MEET_NEXT_KEY) || null;
       meetState.lastMetDate = safeGet(MEET_LAST_KEY) || null;
       syncInputFromState();
+      updateMeetCalendarMarks();
     }
 
     renderMeetCountdown();
     setInterval(renderMeetCountdown, 1000);
+  }
+
+  /* ============================================================
+     TIME APART (manual — separate from the meet-again countdown)
+     You add the last day you were physically together each time you
+     part ways (not just one day, since visits span several days),
+     and update it again whenever you agree on your next visit. Saves
+     automatically, synced the same way as everything else above.
+     ============================================================ */
+  var APART_KEY = "fmp_apart_since";
+  var apartState = { lastTogether: null };
+  var apartSaveTimer = null;
+
+  function setupTimeApart(){
+    var input = $("#apart-date");
+    var saveBtn = $("#apart-save");
+    var el = $("#apart-countdown");
+
+    function persistApartState(){
+      if(firebaseReady && db){
+        db.collection("meta").doc("apart").set({
+          lastTogether: apartState.lastTogether
+        }, { merge: true }).catch(function(){});
+      } else {
+        safeSet(APART_KEY, apartState.lastTogether || "");
+      }
+    }
+
+    function syncInputFromState(){
+      if(document.activeElement === input) return; // don't clobber active typing
+      input.value = apartState.lastTogether || "";
+    }
+
+    function renderApartCountdown(){
+      if(!apartState.lastTogether){
+        el.textContent = "Add the last day we were together to start tracking 💭";
+        return;
+      }
+      var parts = apartState.lastTogether.split("-").map(Number);
+      var last = new Date(parts[0], parts[1]-1, parts[2]);
+      var today = new Date();
+      var todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      var days = Math.round((todayMid - last) / 86400000);
+      if(days <= 0){
+        el.innerHTML = "We were together today 🥰";
+      } else {
+        el.innerHTML = "It's been <span class=\"num\">"+days+"</span> day"+(days===1?"":"s")+" since we were last together 💭";
+      }
+    }
+
+    function saveFromInput(){
+      var v = input.value;
+      if(!v) return;
+      apartState.lastTogether = v;
+      persistApartState();
+      renderApartCountdown();
+    }
+
+    input.addEventListener("change", function(){
+      clearTimeout(apartSaveTimer);
+      apartSaveTimer = setTimeout(saveFromInput, 250);
+    });
+    saveBtn.addEventListener("click", saveFromInput);
+
+    if(initFirebaseOnce()){
+      db.collection("meta").doc("apart").onSnapshot(function(doc){
+        var d = doc.exists ? doc.data() : {};
+        apartState.lastTogether = d.lastTogether || null;
+        syncInputFromState();
+        renderApartCountdown();
+      }, function(){ /* fall back to whatever's already shown */ });
+    } else {
+      apartState.lastTogether = safeGet(APART_KEY) || null;
+      syncInputFromState();
+    }
+
+    renderApartCountdown();
+    setInterval(renderApartCountdown, 60000);
   }
 
   /* ============================================================
@@ -1278,6 +1383,9 @@
      CALENDAR
      ============================================================ */
   var calView = { year: new Date().getFullYear(), month: new Date().getMonth() };
+  // Dates added automatically (not hand-edited in SPECIAL_DATES) — e.g. the
+  // upcoming/most-recent "meet again" date — keyed by 'YYYY-MM-DD'.
+  var dynamicSpecialDates = {};
   function setupCalendar(){
     $("#cal-prev").addEventListener("click", function(){
       calView.month--; if(calView.month<0){calView.month=11; calView.year--;}
@@ -1301,6 +1409,7 @@
 
     var specialMap = {};
     SPECIAL_DATES.forEach(function(sd){ specialMap[sd.date] = sd.label; });
+    Object.keys(dynamicSpecialDates).forEach(function(iso){ specialMap[iso] = dynamicSpecialDates[iso]; });
 
     var dows = ["Mo","Tu","We","Th","Fr","Sa","Su"];
     var html = dows.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join("");
