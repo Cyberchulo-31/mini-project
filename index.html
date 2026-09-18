@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Mulish:wght@400;600;700;800&display=swap">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
 <style>
   :root{
     --bg:#FFF6F3;
@@ -197,11 +198,16 @@
     border:3px solid rgba(255,255,255,.65);padding:0;
     animation:floaty ease-in-out infinite alternate;
   }
-  .photo-card img{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-card img, .photo-card video{width:100%;height:100%;object-fit:cover;display:block;}
   .photo-card .by{
     position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
     background:rgba(30,10,18,.6);color:#fff;white-space:nowrap;
     font-size:.6rem;font-weight:800;padding:3px 7px;border-radius:999px;
+  }
+  .photo-card .play-badge{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(30,10,18,.5);color:#fff;width:30px;height:30px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;
   }
   @keyframes floaty{
     from{transform:translateY(0) rotate(-2deg);}
@@ -218,11 +224,20 @@
   }
   #photo-modal.show{display:flex;}
   #photo-modal .box{
+    position:relative;
     background:var(--surface);border-radius:20px;padding:16px;max-width:min(92vw,480px);text-align:center;
   }
-  #photo-modal img{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;}
+  #photo-modal img, #photo-modal video{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;background:#000;}
   #photo-modal .modal-meta{font-size:.8rem;color:var(--muted);margin:10px 0 0;}
   #photo-modal .modal-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
+  .modal-nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    background:rgba(30,10,18,.55);color:#fff;border:none;width:38px;height:38px;
+    border-radius:50%;font-size:1.3rem;cursor:pointer;z-index:2;
+    align-items:center;justify-content:center;
+  }
+  .modal-nav.prev{left:-6px;}
+  .modal-nav.next{right:-6px;}
   .btn-danger{
     background:var(--surface-2);border:1.5px solid var(--accent-deep);color:var(--accent-deep);
     padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;
@@ -311,7 +326,7 @@
 
   <nav id="tabs">
     <button class="nav-btn active" data-tab="home" type="button">🏡 Home</button>
-    <button class="nav-btn" data-tab="photos" type="button">💗 Photos</button>
+    <button class="nav-btn" data-tab="photos" type="button">💗 Memories</button>
     <button class="nav-btn" data-tab="puzzle" type="button">🧩 Puzzle</button>
     <button class="nav-btn" data-tab="calendar" type="button">📅 Calendar</button>
     <button class="nav-btn" data-tab="color" type="button">🎨 Color</button>
@@ -373,14 +388,15 @@
     <!-- PHOTOS -->
     <section class="tab" id="tab-photos">
       <div class="card">
-        <p class="eyebrow">Our photo album</p>
-        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Add as many photos as you want — you can both add photos here, anytime, from any device.</p>
+        <p class="eyebrow">Beautiful memories</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Add as many photos and videos as you want — you can both add memories here, anytime, from any device.</p>
         <div id="photo-toolbar">
           <label class="btn-primary" id="photo-add-btn">
-            + Add Photos
-            <input type="file" id="photo-input" accept="image/*" multiple style="display:none;">
+            + Add Memories
+            <input type="file" id="photo-input" accept="image/*,video/*" multiple style="display:none;">
           </label>
-          <select id="photo-whoami" aria-label="Who's adding photos"></select>
+          <button class="btn-ghost" id="slideshow-btn" type="button">▶ Slideshow</button>
+          <select id="photo-whoami" aria-label="Who's adding memories"></select>
         </div>
         <p id="photo-status"></p>
         <div id="photo-grid" class="photo-grid"></div>
@@ -447,7 +463,10 @@
 
 <div id="photo-modal">
   <div class="box">
+    <button class="modal-nav prev" id="modal-prev" type="button" aria-label="Previous memory">‹</button>
+    <button class="modal-nav next" id="modal-next" type="button" aria-label="Next memory">›</button>
     <img id="modal-img" src="" alt="">
+    <video id="modal-video" controls playsinline style="display:none;"></video>
     <p class="modal-meta" id="modal-meta"></p>
     <div class="modal-actions">
       <button class="btn-danger" id="modal-delete" type="button">Delete</button>
@@ -774,6 +793,7 @@
      SHARED FIRESTORE SETUP (used by Meet-Again + Photos)
      ============================================================ */
   var db = null;
+  var storage = null;
   var firebaseReady = false;
   function initFirebaseOnce(){
     if(db) return true;
@@ -782,6 +802,7 @@
     try {
       if(!firebase.apps.length){ firebase.initializeApp(FIREBASE_CONFIG); }
       db = firebase.firestore();
+      try { storage = firebase.storage(); } catch(e){ storage = null; } // videos just won't upload if Storage isn't set up
       firebaseReady = true;
       return true;
     } catch(err){
@@ -997,7 +1018,9 @@
   }
 
   /* ============================================================
-     PHOTOS (shared album, synced live via Firebase Firestore)
+     BEAUTIFUL MEMORIES (shared photos + videos, synced live via
+     Firebase Firestore; videos live in Firebase Storage since
+     they're too big for a Firestore field)
      ============================================================ */
   var WHOAMI_KEY = "fmp_whoami";
   var MAX_FIELD_BYTES = 900000; // stay safely under Firestore's ~1MiB field cap
@@ -1016,6 +1039,12 @@
     }).join("");
   }
 
+  // ---- picture-viewer state: which memory is open, and slideshow mode ----
+  var modalIndex = -1;
+  var slideshowOn = false;
+  var slideshowTimer = null;
+  var SLIDESHOW_IMAGE_MS = 4000;
+
   function initPhotoSync(){
     var whoSel = $("#photo-whoami");
     var names = ["Nosa", NICKNAMES[0] || "Her"];
@@ -1033,23 +1062,31 @@
       if(files.length) handleNewPhotos(files, whoSel.value);
     });
 
-    $("#modal-close").addEventListener("click", function(){
-      $("#photo-modal").classList.remove("show");
+    $("#slideshow-btn").addEventListener("click", function(){
+      if(slideshowOn){ closeModal(); return; }
+      if(!photosCache.length) return;
+      slideshowOn = true;
+      $("#slideshow-btn").textContent = "⏸ Stop Slideshow";
+      openModalAt(0);
     });
+
+    $("#modal-prev").addEventListener("click", showPrevMemory);
+    $("#modal-next").addEventListener("click", showNextMemory);
+    $("#modal-close").addEventListener("click", closeModal);
     $("#photo-modal").addEventListener("click", function(e){
-      if(e.target.id === "photo-modal") $("#photo-modal").classList.remove("show");
+      if(e.target.id === "photo-modal") closeModal();
     });
     $("#modal-delete").addEventListener("click", function(){
       var id = $("#photo-modal").dataset.photoId;
       if(id) deletePhoto(id);
-      $("#photo-modal").classList.remove("show");
+      closeModal();
     });
 
     if(!initFirebaseOnce()){
       if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)){
-        renderPhotoMessage("Photo sharing isn't set up yet. Ask Nosa to finish connecting it — once he does, you'll both be able to add photos here from any device. 💗");
+        renderPhotoMessage("Memory sharing isn't set up yet. Ask Nosa to finish connecting it — once he does, you'll both be able to add memories here from any device. 💗");
       } else {
-        renderPhotoMessage("Photo sharing couldn't start — check your internet connection and reload the page.");
+        renderPhotoMessage("Memory sharing couldn't start — check your internet connection and reload the page.");
       }
       return;
     }
@@ -1058,17 +1095,30 @@
   }
 
   function subscribeToPhotos(){
-    $("#photo-status").textContent = "Loading photos…";
+    $("#photo-status").textContent = "Loading memories…";
     if(photoUnsub) photoUnsub();
     photoUnsub = photoDb.collection("photos").orderBy("ts","desc").onSnapshot(function(snap){
       photosCache = [];
       snap.forEach(function(doc){
         var d = doc.data();
-        photosCache.push({ id: doc.id, img: d.img, addedBy: d.addedBy, ts: d.ts });
+        photosCache.push({
+          id: doc.id,
+          type: d.type === "video" ? "video" : "image",
+          img: d.img,
+          videoUrl: d.videoUrl,
+          storagePath: d.storagePath,
+          addedBy: d.addedBy,
+          ts: d.ts
+        });
       });
       renderPhotoGallery();
+      // keep an open picture viewer in sync if a memory was added/removed elsewhere
+      if($("#photo-modal").classList.contains("show")){
+        if(!photosCache.length){ closeModal(); }
+        else { renderModalItem(); }
+      }
     }, function(err){
-      renderPhotoMessage("Couldn't load photos (" + (err && err.message ? err.message : "unknown error") + ").");
+      renderPhotoMessage("Couldn't load memories (" + (err && err.message ? err.message : "unknown error") + ").");
     });
   }
 
@@ -1079,58 +1129,159 @@
 
   function renderPhotoGallery(){
     $("#photo-status").textContent = photosCache.length ?
-      (photosCache.length + " photo" + (photosCache.length===1?"":"s")) : "";
+      (photosCache.length + " memor" + (photosCache.length===1?"y":"ies")) : "";
     if(!photosCache.length){
       $("#photo-grid").innerHTML = decorBubblesHtml() +
-        '<div class="photo-empty">No photos yet — tap "+ Add Photos" to start filling this up. 💗</div>';
+        '<div class="photo-empty">No memories yet — tap "+ Add Memories" to start filling this up. 💗</div>';
       return;
     }
     $("#photo-grid").innerHTML = photosCache.map(function(p, i){
       var dur = (5 + (i%4)).toFixed(1);
       var delay = ((i%6)*0.35).toFixed(2);
+      var mediaHtml = p.type === "video" ?
+        '<video src="'+(p.videoUrl||"")+'" muted playsinline preload="metadata"></video><span class="play-badge">▶</span>' :
+        '<img src="'+p.img+'" loading="lazy" alt="">';
       return '<button class="photo-card" type="button" data-id="'+p.id+'" style="animation-duration:'+dur+'s;animation-delay:'+delay+'s;">' +
-        '<img src="'+p.img+'" loading="lazy" alt="">' +
-        (p.addedBy ? '<span class="by">'+p.addedBy+'</span>' : '') + '</button>';
+        mediaHtml + (p.addedBy ? '<span class="by">'+p.addedBy+'</span>' : '') + '</button>';
     }).join("");
     $all(".photo-card").forEach(function(card){
       card.addEventListener("click", function(){
-        var photo = photosCache.filter(function(p){ return p.id === card.dataset.id; })[0];
-        if(!photo) return;
-        $("#modal-img").src = photo.img;
-        $("#modal-meta").textContent = photo.addedBy ? ("Added by " + photo.addedBy) : "";
-        $("#photo-modal").dataset.photoId = photo.id;
-        $("#photo-modal").classList.add("show");
+        var idx = photosCache.findIndex(function(p){ return p.id === card.dataset.id; });
+        if(idx !== -1) openModalAt(idx);
       });
     });
+  }
+
+  // ---- picture viewer: open/close, next/previous, optional slideshow ----
+  function openModalAt(index){
+    if(index < 0 || index >= photosCache.length) return;
+    modalIndex = index;
+    $("#photo-modal").classList.add("show");
+    renderModalItem();
+  }
+
+  function renderModalItem(){
+    if(modalIndex < 0 || modalIndex >= photosCache.length) modalIndex = 0;
+    var item = photosCache[modalIndex];
+    if(!item) return;
+    var imgEl = $("#modal-img"), vidEl = $("#modal-video");
+    vidEl.onended = null;
+    if(item.type === "video"){
+      imgEl.style.display = "none";
+      vidEl.style.display = "block";
+      if(vidEl.src !== item.videoUrl) vidEl.src = item.videoUrl || "";
+      vidEl.muted = slideshowOn;
+      if(slideshowOn){ vidEl.currentTime = 0; vidEl.play().catch(function(){}); }
+    } else {
+      vidEl.pause();
+      vidEl.removeAttribute("src");
+      vidEl.style.display = "none";
+      imgEl.style.display = "block";
+      imgEl.src = item.img || "";
+    }
+    $("#modal-meta").textContent = item.addedBy ? ("Added by " + item.addedBy) : "";
+    $("#photo-modal").dataset.photoId = item.id;
+    var multi = photosCache.length > 1;
+    $("#modal-prev").style.display = multi ? "flex" : "none";
+    $("#modal-next").style.display = multi ? "flex" : "none";
+    scheduleSlideshowAdvance();
+  }
+
+  function showNextMemory(){
+    if(!photosCache.length) return;
+    modalIndex = (modalIndex + 1) % photosCache.length;
+    renderModalItem();
+  }
+  function showPrevMemory(){
+    if(!photosCache.length) return;
+    modalIndex = (modalIndex - 1 + photosCache.length) % photosCache.length;
+    renderModalItem();
+  }
+
+  function scheduleSlideshowAdvance(){
+    clearTimeout(slideshowTimer);
+    slideshowTimer = null;
+    if(!slideshowOn) return;
+    var item = photosCache[modalIndex];
+    if(!item) return;
+    if(item.type === "video"){
+      $("#modal-video").onended = function(){ if(slideshowOn) showNextMemory(); };
+    } else {
+      slideshowTimer = setTimeout(function(){ if(slideshowOn) showNextMemory(); }, SLIDESHOW_IMAGE_MS);
+    }
+  }
+
+  function closeModal(){
+    slideshowOn = false;
+    clearTimeout(slideshowTimer);
+    slideshowTimer = null;
+    $("#slideshow-btn").textContent = "▶ Slideshow";
+    var vidEl = $("#modal-video");
+    vidEl.onended = null;
+    vidEl.pause();
+    $("#photo-modal").classList.remove("show");
   }
 
   function deletePhoto(id){
     if(!photoDb || !id) return;
+    var item = photosCache.filter(function(p){ return p.id === id; })[0];
     photoDb.collection("photos").doc(id).delete().catch(function(){});
+    if(item && item.type === "video" && item.storagePath && storage){
+      storage.ref(item.storagePath).delete().catch(function(){});
+    }
   }
 
   function handleNewPhotos(files, who){
     if(!photoDb){ return; }
-    $("#photo-status").textContent = "Adding " + files.length + " photo" + (files.length===1?"":"s") + "…";
+    $("#photo-status").textContent = "Adding " + files.length + " memor" + (files.length===1?"y":"ies") + "…";
     var remaining = files.length, hadError = false;
+    function oneDone(err){
+      remaining--;
+      if(err) hadError = true;
+      if(remaining === 0){
+        $("#photo-status").textContent = hadError ?
+          "Added what we could — one or two didn't make it, try again with those." : "";
+      }
+    }
     files.forEach(function(file){
-      compressImageFile(file, function(dataUrl, err){
-        remaining--;
-        if(err || !dataUrl){
-          hadError = true;
-        } else {
-          photoDb.collection("photos").add({
-            img: dataUrl,
-            addedBy: who || "",
-            ts: Date.now()
-          }).catch(function(){ hadError = true; });
-        }
-        if(remaining === 0){
-          $("#photo-status").textContent = hadError ?
-            "Added what we could — one or two photos didn't make it, try again with those." : "";
-        }
-      });
+      var isVideo = file.type && file.type.indexOf("video/") === 0;
+      if(isVideo){
+        uploadVideoFile(file, who, oneDone);
+      } else {
+        compressImageFile(file, function(dataUrl, err){
+          if(err || !dataUrl){
+            oneDone(true);
+          } else {
+            photoDb.collection("photos").add({
+              type: "image",
+              img: dataUrl,
+              addedBy: who || "",
+              ts: Date.now()
+            }).then(function(){ oneDone(false); }).catch(function(){ oneDone(true); });
+          }
+        });
+      }
     });
+  }
+
+  // Uploads a video file straight to Firebase Storage (Firestore fields are
+  // far too small for video), then saves a Firestore doc pointing at it.
+  function uploadVideoFile(file, who, cb){
+    if(!storage){ cb(true); return; }
+    var safeName = (file.name || "video").replace(/[^a-zA-Z0-9.]/g, "_");
+    var path = "memories/" + Date.now() + "_" + Math.random().toString(36).slice(2) + "_" + safeName;
+    var ref = storage.ref(path);
+    ref.put(file).then(function(){
+      return ref.getDownloadURL();
+    }).then(function(url){
+      return photoDb.collection("photos").add({
+        type: "video",
+        videoUrl: url,
+        storagePath: path,
+        addedBy: who || "",
+        ts: Date.now()
+      });
+    }).then(function(){ cb(false); }).catch(function(){ cb(true); });
   }
 
   // Resize + compress an image file on a <canvas> and hand back a JPEG
