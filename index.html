@@ -753,42 +753,127 @@
   }
 
   /* ============================================================
-     MEET-AGAIN COUNTDOWN
+     SHARED FIRESTORE SETUP (used by Meet-Again + Photos)
      ============================================================ */
-  var MEET_KEY = "fmp_meet_again";
-  function setupMeetAgain(){
-    var saved = safeGet(MEET_KEY);
-    if(saved) $("#meet-date").value = saved;
-
-    $("#meet-save").addEventListener("click", function(){
-      var v = $("#meet-date").value;
-      if(v){ safeSet(MEET_KEY, v); }
-      tick();
-    });
-
-    function tick(){
-      var v = $("#meet-date").value;
-      var el = $("#meet-countdown");
-      if(!v){
-        el.textContent = "Tell me when we see each other next 💌";
-        return;
-      }
-      var target = new Date(v);
-      var ms = target - new Date();
-      if(ms <= 0){
-        el.innerHTML = "<strong>We might be together right now 🥰</strong>";
-        return;
-      }
-      var totalSec = Math.floor(ms/1000);
-      var d = Math.floor(totalSec/86400);
-      var h = Math.floor((totalSec%86400)/3600);
-      var mi = Math.floor((totalSec%3600)/60);
-      var s = totalSec%60;
-      el.innerHTML = '<span class="num">'+d+'</span>d <span class="num">'+pad2(h)+'</span>h '+
-        '<span class="num">'+pad2(mi)+'</span>m <span class="num">'+pad2(s)+'</span>s until I see you again';
+  var db = null;
+  var firebaseReady = false;
+  function initFirebaseOnce(){
+    if(db) return true;
+    if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)) return false;
+    if(!window.firebase) return false;
+    try {
+      if(!firebase.apps.length){ firebase.initializeApp(FIREBASE_CONFIG); }
+      db = firebase.firestore();
+      firebaseReady = true;
+      return true;
+    } catch(err){
+      return false;
     }
-    tick();
-    setInterval(tick, 1000);
+  }
+
+  /* ============================================================
+     MEET-AGAIN COUNTDOWN
+     Saves automatically as you type (no button needed), and once a
+     date passes it's kept as "last seen" instead of disappearing —
+     synced across both of your devices when Firebase is set up,
+     or remembered on this device only otherwise.
+     ============================================================ */
+  var MEET_NEXT_KEY = "fmp_meet_next";
+  var MEET_LAST_KEY = "fmp_meet_last";
+  var meetState = { nextDate: null, lastMetDate: null };
+  var meetSaveTimer = null;
+
+  function setupMeetAgain(){
+    var input = $("#meet-date");
+    var saveBtn = $("#meet-save");
+    var el = $("#meet-countdown");
+
+    // migrate the old single-value key from before this feature existed
+    var legacy = safeGet("fmp_meet_again");
+    if(legacy && !safeGet(MEET_NEXT_KEY)){ safeSet(MEET_NEXT_KEY, legacy); }
+
+    function persistMeetState(){
+      if(firebaseReady && db){
+        db.collection("meta").doc("meetAgain").set({
+          nextDate: meetState.nextDate,
+          lastMetDate: meetState.lastMetDate
+        }, { merge: true }).catch(function(){});
+      } else {
+        safeSet(MEET_NEXT_KEY, meetState.nextDate || "");
+        safeSet(MEET_LAST_KEY, meetState.lastMetDate || "");
+      }
+    }
+
+    function syncInputFromState(){
+      if(document.activeElement === input) return; // don't clobber active typing
+      input.value = meetState.nextDate || "";
+    }
+
+    function renderLastMet(){
+      var d = new Date(meetState.lastMetDate);
+      var nice = isNaN(d.getTime()) ? meetState.lastMetDate :
+        d.toLocaleDateString(undefined,{weekday:"long", month:"long", day:"numeric", year:"numeric"});
+      el.innerHTML = "We last saw each other on <strong>"+nice+"</strong>. Tell me when we're meeting again 💌";
+    }
+
+    function renderMeetCountdown(){
+      if(meetState.nextDate){
+        var target = new Date(meetState.nextDate);
+        var ms = target - new Date();
+        if(ms > 0){
+          var totalSec = Math.floor(ms/1000);
+          var d = Math.floor(totalSec/86400);
+          var h = Math.floor((totalSec%86400)/3600);
+          var mi = Math.floor((totalSec%3600)/60);
+          var s = totalSec%60;
+          el.innerHTML = '<span class="num">'+d+'</span>d <span class="num">'+pad2(h)+'</span>h '+
+            '<span class="num">'+pad2(mi)+'</span>m <span class="num">'+pad2(s)+'</span>s until I see you again';
+        } else {
+          // the date has arrived/passed — keep it as a "last seen" record
+          // instead of losing it, and clear the field for the next one
+          meetState.lastMetDate = meetState.nextDate;
+          meetState.nextDate = null;
+          persistMeetState();
+          syncInputFromState();
+          renderLastMet();
+        }
+      } else if(meetState.lastMetDate){
+        renderLastMet();
+      } else {
+        el.textContent = "Tell me when we see each other next 💌";
+      }
+    }
+
+    function saveFromInput(){
+      var v = input.value;
+      if(!v) return;
+      meetState.nextDate = v;
+      persistMeetState();
+      renderMeetCountdown();
+    }
+
+    input.addEventListener("change", function(){
+      clearTimeout(meetSaveTimer);
+      meetSaveTimer = setTimeout(saveFromInput, 250);
+    });
+    saveBtn.addEventListener("click", saveFromInput);
+
+    if(initFirebaseOnce()){
+      db.collection("meta").doc("meetAgain").onSnapshot(function(doc){
+        var d = doc.exists ? doc.data() : {};
+        meetState.nextDate = d.nextDate || null;
+        meetState.lastMetDate = d.lastMetDate || null;
+        syncInputFromState();
+        renderMeetCountdown();
+      }, function(){ /* fall back to whatever's already shown */ });
+    } else {
+      meetState.nextDate = safeGet(MEET_NEXT_KEY) || null;
+      meetState.lastMetDate = safeGet(MEET_LAST_KEY) || null;
+      syncInputFromState();
+    }
+
+    renderMeetCountdown();
+    setInterval(renderMeetCountdown, 1000);
   }
 
   /* ============================================================
@@ -840,21 +925,16 @@
       $("#photo-modal").classList.remove("show");
     });
 
-    if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)){
-      renderPhotoMessage("Photo sharing isn't set up yet. Ask Nosa to finish connecting it — once he does, you'll both be able to add photos here from any device. 💗");
+    if(!initFirebaseOnce()){
+      if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)){
+        renderPhotoMessage("Photo sharing isn't set up yet. Ask Nosa to finish connecting it — once he does, you'll both be able to add photos here from any device. 💗");
+      } else {
+        renderPhotoMessage("Photo sharing couldn't start — check your internet connection and reload the page.");
+      }
       return;
     }
-    if(!window.firebase){
-      renderPhotoMessage("Photo sharing couldn't load — check your internet connection and reload the page.");
-      return;
-    }
-    try {
-      if(!firebase.apps.length){ firebase.initializeApp(FIREBASE_CONFIG); }
-      photoDb = firebase.firestore();
-      subscribeToPhotos();
-    } catch(err){
-      renderPhotoMessage("Photo sharing couldn't start (" + (err && err.message ? err.message : "unknown error") + ").");
-    }
+    photoDb = db;
+    subscribeToPhotos();
   }
 
   function subscribeToPhotos(){
@@ -1040,6 +1120,7 @@
       var radius = (len*0.3)/2;
       var bulge = sign * pad * 0.9;
       var midx = (p1x+p2x)/2 + nx*bulge, midy = (p1y+p2y)/2 + ny*bulge;
+      // approximate a smooth bump with a quadratic through the bulge point using two Q segments
       path.push("L "+p1x+" "+p1y);
       path.push("Q "+midx+" "+midy+" "+p2x+" "+p2y);
       path.push("L "+x2+" "+y2);
@@ -1113,6 +1194,7 @@
 
     function scatterPieces(){
       pieces.forEach(function(p){ p.placed = false; p.el.classList.remove("placed"); });
+      // lay tray pieces below the board in a simple wrapping flow (reliable on mobile)
       trayEl.style.position = "relative";
       trayEl.style.marginTop = "14px";
       trayEl.style.display = "flex";
@@ -1269,6 +1351,7 @@
         }
       }
       ctx.beginPath(); ctx.arc(cx,cy,26,0,Math.PI*2); ctx.stroke();
+      // stem
       ctx.beginPath(); ctx.moveTo(cx,cy+150); ctx.lineTo(cx,h-10); ctx.stroke();
     },
     heart: function(ctx,w,h){
@@ -1295,6 +1378,7 @@
       ctx.moveTo(w/2-15, baseY-90);
       ctx.lineTo(w/2+15, baseY-90);
       ctx.stroke();
+      // small heart above
       ctx.save(); ctx.translate(w/2, baseY-230); ctx.scale(2.6,2.6);
       ctx.beginPath();
       ctx.moveTo(0,10);
