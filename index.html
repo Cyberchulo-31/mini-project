@@ -228,6 +228,11 @@
     background:var(--surface);border-radius:20px;padding:16px;max-width:min(92vw,480px);text-align:center;
   }
   #photo-modal img, #photo-modal video{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;background:#000;}
+  @keyframes memoryPop{
+    from{opacity:0;transform:scale(.92) translateY(10px);}
+    to{opacity:1;transform:scale(1) translateY(0);}
+  }
+  #photo-modal img.media-enter, #photo-modal video.media-enter{animation:memoryPop .5s cubic-bezier(.2,.7,.3,1);}
   #photo-modal .modal-meta{font-size:.8rem;color:var(--muted);margin:10px 0 0;}
   #photo-modal .modal-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
   .modal-nav{
@@ -614,9 +619,6 @@
 
   drawLoginBloom();
   setLoginName();
-  try {
-    if(sessionStorage.getItem(SESSION_KEY) === "1"){ showApp(); }
-  } catch(e){}
 
   /* ============================================================
      TABS
@@ -1061,15 +1063,15 @@
   var slideshowTimer = null;
   var SLIDESHOW_IMAGE_MS = 4000;
 
-  // Starts the slideshow from the first memory — used both by the button
-  // and by opening the Memories tab itself. Does nothing if a slideshow is
+  // Starts the slideshow at a random memory — used both by the button and
+  // by opening the Memories tab itself. Does nothing if a slideshow is
   // already running, or there's nothing to show yet.
   function startSlideshow(){
     if(slideshowOn) return;
     if(!photosCache.length) return;
     slideshowOn = true;
     $("#slideshow-btn").textContent = "⏸ Stop Slideshow";
-    openModalAt(0);
+    openModalAt(Math.floor(Math.random() * photosCache.length));
   }
 
   function initPhotoSync(){
@@ -1184,6 +1186,15 @@
     renderModalItem();
   }
 
+  // Restarts the little "pop in" animation on a media element — remove the
+  // class, force a reflow, then add it back so the animation replays even
+  // though the element never left the DOM.
+  function playMediaTransition(el){
+    el.classList.remove("media-enter");
+    void el.offsetWidth;
+    el.classList.add("media-enter");
+  }
+
   function renderModalItem(){
     if(modalIndex < 0 || modalIndex >= photosCache.length) modalIndex = 0;
     var item = photosCache[modalIndex];
@@ -1196,12 +1207,14 @@
       if(vidEl.src !== item.videoUrl) vidEl.src = item.videoUrl || "";
       vidEl.muted = slideshowOn;
       if(slideshowOn){ vidEl.currentTime = 0; vidEl.play().catch(function(){}); }
+      playMediaTransition(vidEl);
     } else {
       vidEl.pause();
       vidEl.removeAttribute("src");
       vidEl.style.display = "none";
       imgEl.style.display = "block";
       imgEl.src = item.img || "";
+      playMediaTransition(imgEl);
     }
     $("#modal-meta").textContent = item.addedBy ? ("Added by " + item.addedBy) : "";
     $("#photo-modal").dataset.photoId = item.id;
@@ -1211,6 +1224,8 @@
     scheduleSlideshowAdvance();
   }
 
+  // Manual Prev/Next: deliberate, sequential browsing through the memories
+  // in order (unaffected by the slideshow's random order).
   function showNextMemory(){
     if(!photosCache.length) return;
     modalIndex = (modalIndex + 1) % photosCache.length;
@@ -1222,6 +1237,23 @@
     renderModalItem();
   }
 
+  // Picks a random memory to jump to that isn't the one currently showing
+  // (so the slideshow never appears to "repeat" the same photo twice in a row).
+  function pickRandomIndex(excludeIndex){
+    if(photosCache.length <= 1) return 0;
+    var idx;
+    do { idx = Math.floor(Math.random() * photosCache.length); } while(idx === excludeIndex);
+    return idx;
+  }
+
+  // Auto-advance used only while the slideshow is running — jumps to a
+  // random memory instead of the next one in order.
+  function slideshowAdvance(){
+    if(!slideshowOn || !photosCache.length) return;
+    modalIndex = pickRandomIndex(modalIndex);
+    renderModalItem();
+  }
+
   function scheduleSlideshowAdvance(){
     clearTimeout(slideshowTimer);
     slideshowTimer = null;
@@ -1229,9 +1261,9 @@
     var item = photosCache[modalIndex];
     if(!item) return;
     if(item.type === "video"){
-      $("#modal-video").onended = function(){ if(slideshowOn) showNextMemory(); };
+      $("#modal-video").onended = function(){ if(slideshowOn) slideshowAdvance(); };
     } else {
-      slideshowTimer = setTimeout(function(){ if(slideshowOn) showNextMemory(); }, SLIDESHOW_IMAGE_MS);
+      slideshowTimer = setTimeout(function(){ if(slideshowOn) slideshowAdvance(); }, SLIDESHOW_IMAGE_MS);
     }
   }
 
@@ -1773,6 +1805,13 @@
     clearPaint();
     drawTemplate();
   }
+
+  // Auto-login (same-tab reload) runs last, after every var/function
+  // above has been defined -- otherwise a returning tab could hit
+  // showApp() before things like FLOWER_TYPES exist yet.
+  try {
+    if(sessionStorage.getItem(SESSION_KEY) === "1"){ showApp(); }
+  } catch(e){}
 
 })();
 </script>
