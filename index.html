@@ -128,17 +128,18 @@
     border-radius:999px;padding:7px 13px;cursor:pointer;font-size:.85rem;
   }
 
-  /* ---------- Spotify floating player (draggable vinyl) ---------- */
-  #spotify-widget{
+  /* ---------- Music player (draggable vinyl -- the playlist itself lives
+     entirely on this site now, no Spotify account needed for either of you) ---------- */
+  #music-widget{
     position:fixed;z-index:40;touch-action:none;user-select:none;
     -webkit-user-select:none;
   }
-  #spotify-vinyl{
+  #music-vinyl{
     position:relative;width:58px;height:58px;padding:0;margin:0;
     border:none;border-radius:50%;background:transparent;cursor:grab;
     box-shadow:0 10px 22px -8px rgba(0,0,0,.55);
   }
-  #spotify-vinyl:active{cursor:grabbing;}
+  #music-vinyl:active{cursor:grabbing;}
   .vinyl-disc{
     position:absolute;inset:0;border-radius:50%;
     background:
@@ -148,36 +149,61 @@
     animation:vinylSpin 4s linear infinite;
     animation-play-state:paused;
   }
-  #spotify-widget.open .vinyl-disc{animation-play-state:running;}
+  #music-widget.open .vinyl-disc, #music-widget.playing .vinyl-disc{animation-play-state:running;}
   @keyframes vinylSpin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
   .vinyl-badge{
     position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;
     background:var(--surface);border:2px solid var(--accent);border-radius:50%;
     display:flex;align-items:center;justify-content:center;font-size:.65rem;line-height:1;
   }
-  #spotify-panel{
-    display:none;position:absolute;width:560px;max-width:92vw;
+  #music-panel{
+    display:none;position:absolute;width:300px;max-width:92vw;
     background:var(--surface);border:1px solid var(--border);border-radius:16px;
     box-shadow:var(--shadow);padding:12px;
   }
-  #spotify-widget.open #spotify-panel{display:block;}
-  #spotify-widget.panel-right #spotify-panel{left:calc(100% + 10px);right:auto;}
-  #spotify-widget.panel-left #spotify-panel{right:calc(100% + 10px);left:auto;}
-  #spotify-widget.panel-down #spotify-panel{top:0;bottom:auto;}
-  #spotify-widget.panel-up #spotify-panel{bottom:0;top:auto;}
-  #spotify-panel-head{
-    display:flex;align-items:center;justify-content:space-between;
+  #music-widget.open #music-panel{display:block;}
+  #music-widget.panel-right #music-panel{left:calc(100% + 10px);right:auto;}
+  #music-widget.panel-left #music-panel{right:calc(100% + 10px);left:auto;}
+  #music-widget.panel-down #music-panel{top:0;bottom:auto;}
+  #music-widget.panel-up #music-panel{bottom:0;top:auto;}
+  #music-panel-head{
+    display:flex;align-items:center;justify-content:space-between;gap:6px;
     margin-bottom:8px;font-size:.82rem;color:var(--muted);font-weight:800;
   }
-  #spotify-panel-close{
+  #music-panel-head .head-btns{display:flex;gap:4px;align-items:center;}
+  #music-panel-head .head-btns button{
     background:none;border:1px solid var(--border);color:var(--muted);
-    border-radius:999px;width:24px;height:24px;cursor:pointer;font-size:.75rem;
+    border-radius:999px;width:22px;height:22px;cursor:pointer;font-size:.72rem;
+    display:flex;align-items:center;justify-content:center;padding:0;line-height:1;
+  }
+  #music-panel-head .head-btns button:disabled{opacity:.4;cursor:default;}
+  #music-add-row{display:flex;gap:6px;margin-bottom:6px;}
+  #music-add-row .btn-ghost{flex:1;text-align:center;font-size:.78rem;padding:8px 10px;display:block;}
+  #music-status{font-size:.72rem;color:var(--muted);min-height:1.1em;margin:0 0 6px;text-align:center;}
+  #music-now-playing{
+    font-size:.8rem;font-weight:800;color:var(--accent-deep);text-align:center;
+    margin-bottom:6px;min-height:1.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  #music-transport{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+  #music-transport button{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--accent-deep);
+    border-radius:10px;width:30px;height:30px;flex:none;cursor:pointer;font-size:.85rem;
     display:flex;align-items:center;justify-content:center;
   }
-  #spotify-panel iframe{width:100%;height:352px;border:none;border-radius:12px;display:block;}
-  #spotify-open-link{
-    display:block;text-align:center;margin-top:8px;font-size:.78rem;
-    color:var(--accent-deep);font-weight:800;text-decoration:none;
+  #music-audio{flex:1;width:100%;height:32px;min-width:0;}
+  #music-empty{font-size:.76rem;color:var(--muted);text-align:center;padding:10px 4px;margin:0;}
+  #music-list{
+    list-style:none;margin:0;padding:0;max-height:180px;overflow-y:auto;
+    border-top:1px solid var(--border);
+  }
+  #music-list li{
+    display:flex;align-items:center;gap:6px;padding:7px 4px;
+    border-bottom:1px solid var(--border);font-size:.78rem;cursor:pointer;
+  }
+  #music-list li.now-playing{color:var(--accent-deep);font-weight:800;}
+  #music-list li .title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #music-list li .remove-song{
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:2px 4px;flex:none;
   }
   nav#tabs{
     display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
@@ -326,14 +352,27 @@
   }
 
   /* ---------- Puzzle ---------- */
+  /* a bit less side padding here than other cards, so the board/tray have
+     more room to breathe on a phone screen */
+  #tab-puzzle .card{padding:22px 12px;}
   #puzzle-area{
-    position:relative;width:100%;max-width:520px;margin:0 auto;
-    aspect-ratio:480/390;
+    position:relative;width:100%;max-width:600px;margin:0 auto;
   }
-  #puzzle-tray, #puzzle-board{position:absolute;inset:0;}
-  #puzzle-board{border-radius:16px;border:2px dashed var(--border);overflow:hidden;background:var(--surface-2);}
-  .piece{position:absolute;cursor:grab;touch-action:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));}
+  #puzzle-board{
+    position:relative;width:100%;aspect-ratio:480/390;
+    border-radius:16px;border:2px dashed var(--border);overflow:hidden;background:var(--surface-2);
+  }
+  .piece{position:absolute;cursor:grab;touch-action:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));flex-shrink:0;}
   .piece.placed{cursor:default;}
+  /* the tray is its own box below the board -- pieces sit in a single
+     scrollable line (not a grid) so their order gives nothing away, and she
+     picks each one up from the line and sets it down in the board above */
+  #puzzle-tray{
+    position:relative;margin-top:14px;min-height:150px;padding:10px;
+    border-radius:16px;border:2px dashed var(--border);background:var(--surface-2);
+    display:flex;flex-wrap:nowrap;gap:10px;align-items:center;
+    overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  }
   #puzzle-controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
   #puzzle-win{
     text-align:center;font-weight:800;color:var(--accent-deep);margin-top:10px;min-height:1.4em;
@@ -618,18 +657,35 @@
   </main>
 </div>
 
-<div id="spotify-widget">
-  <button id="spotify-vinyl" type="button" aria-label="Music player -- tap to open, drag to move">
+<div id="music-widget">
+  <button id="music-vinyl" type="button" aria-label="Music player -- tap to open, drag to move">
     <span class="vinyl-disc"></span>
     <span class="vinyl-badge">🎵</span>
   </button>
-  <div id="spotify-panel">
-    <div id="spotify-panel-head">
+  <div id="music-panel">
+    <div id="music-panel-head">
       <span>Our playlist 💗</span>
-      <button id="spotify-panel-close" type="button" aria-label="Close player">✕</button>
+      <span class="head-btns">
+        <button id="music-size-down" type="button" aria-label="Smaller player">－</button>
+        <button id="music-size-up" type="button" aria-label="Bigger player">＋</button>
+        <button id="music-panel-close" type="button" aria-label="Close player">✕</button>
+      </span>
     </div>
-    <iframe id="spotify-frame" title="Spotify playlist" allow="autoplay; encrypted-media; clipboard-write" loading="lazy"></iframe>
-    <a id="spotify-open-link" href="#" target="_blank" rel="noopener">Open full playlist in Spotify ↗</a>
+    <div id="music-add-row">
+      <label class="btn-ghost" id="music-add-btn">
+        + Add Song
+        <input type="file" id="music-input" accept="audio/*" multiple style="display:none;">
+      </label>
+    </div>
+    <p id="music-status"></p>
+    <div id="music-now-playing">Nothing playing yet</div>
+    <div id="music-transport">
+      <button id="music-prev" type="button" aria-label="Previous song">⏮</button>
+      <audio id="music-audio" controls preload="none"></audio>
+      <button id="music-next" type="button" aria-label="Next song">⏭</button>
+    </div>
+    <p id="music-empty">No songs yet -- tap "+ Add Song" to start your playlist.</p>
+    <ul id="music-list"></ul>
   </div>
 </div>
 
@@ -681,14 +737,6 @@
   // Extra dates to highlight on the calendar. Format: 'YYYY-MM-DD'.
   // Example: { date: '2026-12-25', label: 'Christmas 🎄' }
   var SPECIAL_DATES = [];
-
-  // Background music: a small floating Spotify player pinned to the bottom
-  // of the screen, visible on every tab. Paste any Spotify playlist (or
-  // album/track) share link below and it'll show up automatically. To swap
-  // in a different playlist later, just replace this link with a new one
-  // copied from Spotify's "Share" menu. Leave it empty ("") and the player
-  // won't show up at all.
-  var SPOTIFY_PLAYLIST_URL = "https://open.spotify.com/playlist/7pnaAvZmK7NOwz9MaqqZy9?si=35c0c0d5b82b4b2d";
 
   // Photo sharing (both of you can add unlimited photos, from any device).
   // Fill these in with your Firebase project's web app config to turn it on —
@@ -750,6 +798,16 @@
   function pickDeterministic(arr, seed){
     var rng = mulberry32(seed);
     return arr[Math.floor(rng()*arr.length)];
+  }
+  // Fisher-Yates -- shuffles a copy of arr into a fresh random order (doesn't
+  // touch the original array).
+  function shuffleArray(arr){
+    var out = arr.slice();
+    for(var i=out.length-1; i>0; i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+    }
+    return out;
   }
 
   /* ============================================================
@@ -815,40 +873,48 @@
   setLoginName();
 
   /* ============================================================
-     SPOTIFY PLAYER
+     MUSIC PLAYER
      A small draggable "vinyl record" icon that floats on top of the
      page (visible on every tab, since the whole site is really one
      page under the hood). Tap it to open a little playlist panel;
      drag it anywhere on the screen and it remembers where you left it.
-     Uses Spotify's own official embed widget, so Spotify handles the
-     actual licensing/playback -- we're just showing their player.
-     Because it's an embedded iframe, the person has to tap play
-     themselves the first time (browsers and Spotify both block silent
-     autoplay here) -- after that it behaves like a normal Spotify
-     player.
+     The playlist itself now lives entirely on this site: either of you
+     can add an audio file, it uploads straight to your shared Firebase
+     Storage, and it shows up for both of you -- no Spotify account,
+     Premium, or login needed, and no more 30-second-preview limits.
      ============================================================ */
-  var SPOTIFY_POS_KEY = "fmp_spotify_pos";
-  var spotifySetUp = false;
+  var MUSIC_POS_KEY = "fmp_music_pos";
+  var MUSIC_SIZE_KEY = "fmp_music_size";
+  var MUSIC_SIZES = [240, 300, 380, 460]; // panel widths (px) the -/+ buttons step through
+  var musicSetUp = false;
+  var songsCache = [];
+  var songsDb = null;
+  var currentSongIndex = -1;
 
-  function spotifyEmbedUrl(){
-    if(!SPOTIFY_PLAYLIST_URL) return null;
-    var m = SPOTIFY_PLAYLIST_URL.match(/open\.spotify\.com\/(playlist|album|track)\/([A-Za-z0-9]+)/);
-    if(!m) return null;
-    return "https://open.spotify.com/embed/" + m[1] + "/" + m[2] + "?utm_source=generator&theme=0";
+  function escapeHtml(s){
+    return String(s||"").replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
   }
 
-  function setupSpotifyPlayer(){
-    if(spotifySetUp) return;
-    var embedUrl = spotifyEmbedUrl();
-    if(!embedUrl) return;
-    spotifySetUp = true;
+  function setupMusicPlayer(){
+    if(musicSetUp) return;
+    musicSetUp = true;
 
-    var widget = $("#spotify-widget");
-    var vinyl = $("#spotify-vinyl");
-    var panel = $("#spotify-panel");
-    var frame = $("#spotify-frame");
-    var closeBtn = $("#spotify-panel-close");
-    var loaded = false;
+    var widget = $("#music-widget");
+    var vinyl = $("#music-vinyl");
+    var panel = $("#music-panel");
+    var closeBtn = $("#music-panel-close");
+    var sizeDownBtn = $("#music-size-down");
+    var sizeUpBtn = $("#music-size-up");
+    var fileInput = $("#music-input");
+    var statusEl = $("#music-status");
+    var nowPlayingEl = $("#music-now-playing");
+    var emptyEl = $("#music-empty");
+    var listEl = $("#music-list");
+    var audioEl = $("#music-audio");
+    var prevBtn = $("#music-prev");
+    var nextBtn = $("#music-next");
 
     function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
@@ -868,13 +934,13 @@
       widget.style.left = x + "px";
       widget.style.top = y + "px";
       updatePanelSide(x, y, w, h);
-      if(save){ safeSet(SPOTIFY_POS_KEY, JSON.stringify({x:x, y:y})); }
+      if(save){ safeSet(MUSIC_POS_KEY, JSON.stringify({x:x, y:y})); }
     }
 
     // Start docked on the right side, vertically centered -- or wherever
     // it was last left, if it's been moved before.
     var saved = null;
-    var rawSaved = safeGet(SPOTIFY_POS_KEY);
+    var rawSaved = safeGet(MUSIC_POS_KEY);
     if(rawSaved){
       try { saved = JSON.parse(rawSaved); } catch(e){ saved = null; }
     }
@@ -889,16 +955,28 @@
       applyPosition(rect.left, rect.top, false);
     });
 
-    // A plain, direct link to the same playlist in the real Spotify app --
-    // the embed above only ever plays 30-second previews on a phone (that's
-    // a Spotify limitation, not something code can fix), so this is the
-    // reliable way to get full songs playing on mobile. On desktop it's
-    // just a nice "open in the full app" shortcut.
-    var openLink = $("#spotify-open-link");
-    if(openLink){ openLink.href = SPOTIFY_PLAYLIST_URL; }
+    // ---- panel size: starts small, -/+ step through a few sizes and
+    // remember her choice for next time ----
+    var sizeIdx = 1; // MUSIC_SIZES[1] = 300px -- a compact default
+    var savedSizeIdx = parseInt(safeGet(MUSIC_SIZE_KEY), 10);
+    if(!isNaN(savedSizeIdx) && MUSIC_SIZES[savedSizeIdx] !== undefined){ sizeIdx = savedSizeIdx; }
+    function applySize(){
+      panel.style.width = MUSIC_SIZES[sizeIdx] + "px";
+      safeSet(MUSIC_SIZE_KEY, String(sizeIdx));
+      sizeDownBtn.disabled = sizeIdx === 0;
+      sizeUpBtn.disabled = sizeIdx === MUSIC_SIZES.length - 1;
+    }
+    sizeDownBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      if(sizeIdx > 0){ sizeIdx--; applySize(); }
+    });
+    sizeUpBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      if(sizeIdx < MUSIC_SIZES.length - 1){ sizeIdx++; applySize(); }
+    });
+    applySize();
 
     function openPanel(){
-      if(!loaded){ frame.src = embedUrl; loaded = true; }
       widget.classList.add("open");
       var rect = widget.getBoundingClientRect();
       updatePanelSide(rect.left, rect.top, rect.width, rect.height);
@@ -941,6 +1019,129 @@
     }
     vinyl.addEventListener("pointerup", endDrag);
     vinyl.addEventListener("pointercancel", endDrag);
+
+    // ---- the playlist itself: add, list, play, remove ----
+    function renderSongList(){
+      if(!songsCache.length){
+        listEl.innerHTML = "";
+        emptyEl.hidden = false;
+        return;
+      }
+      emptyEl.hidden = true;
+      listEl.innerHTML = songsCache.map(function(s, i){
+        return '<li data-i="'+i+'" class="'+(i===currentSongIndex?"now-playing":"")+'">'+
+          '<span class="title">'+(i===currentSongIndex?"▶ ":"")+escapeHtml(s.title)+'</span>'+
+          '<button class="remove-song" type="button" data-i="'+i+'" aria-label="Remove song">✕</button>'+
+        '</li>';
+      }).join("");
+    }
+
+    function playIndex(i){
+      if(i < 0 || i >= songsCache.length) return;
+      currentSongIndex = i;
+      audioEl.src = songsCache[i].url;
+      audioEl.play().catch(function(){}); // first tap ever may still be required by the browser
+      nowPlayingEl.textContent = "♪ " + songsCache[i].title;
+      renderSongList();
+    }
+
+    audioEl.addEventListener("play", function(){ widget.classList.add("playing"); });
+    audioEl.addEventListener("pause", function(){ widget.classList.remove("playing"); });
+    audioEl.addEventListener("ended", function(){
+      if(songsCache.length){ playIndex((currentSongIndex + 1) % songsCache.length); }
+    });
+
+    prevBtn.addEventListener("click", function(){
+      if(!songsCache.length) return;
+      playIndex((currentSongIndex - 1 + songsCache.length) % songsCache.length);
+    });
+    nextBtn.addEventListener("click", function(){
+      if(!songsCache.length) return;
+      playIndex((currentSongIndex + 1) % songsCache.length);
+    });
+
+    listEl.addEventListener("click", function(e){
+      var removeBtn = e.target.closest(".remove-song");
+      if(removeBtn){
+        var ri = parseInt(removeBtn.dataset.i, 10);
+        deleteSong(songsCache[ri]);
+        return;
+      }
+      var li = e.target.closest("li");
+      if(li){ playIndex(parseInt(li.dataset.i, 10)); }
+    });
+
+    fileInput.addEventListener("click", function(e){ e.stopPropagation(); });
+    fileInput.addEventListener("change", function(){
+      var files = Array.prototype.slice.call(fileInput.files || []);
+      fileInput.value = "";
+      if(files.length) handleNewSongs(files);
+    });
+
+    function handleNewSongs(files){
+      if(!initFirebaseOnce()){
+        statusEl.textContent = "Song sharing isn't set up yet -- ask Nosa to finish the Firebase setup.";
+        return;
+      }
+      songsDb = db;
+      statusEl.textContent = "Adding " + files.length + " song" + (files.length===1?"":"s") + "…";
+      var remaining = files.length, hadError = false;
+      function oneDone(err){
+        remaining--;
+        if(err) hadError = true;
+        if(remaining === 0){
+          statusEl.textContent = hadError ? "Added what we could -- one or two didn't make it." : "";
+        }
+      }
+      files.forEach(function(file){ uploadSongFile(file, oneDone); });
+    }
+
+    function uploadSongFile(file, cb){
+      if(!storage){ cb(true); return; }
+      var title = (file.name || "Song").replace(/\.[a-zA-Z0-9]+$/, "").replace(/[_-]+/g, " ").trim() || "Song";
+      var safeName = (file.name || "song").replace(/[^a-zA-Z0-9.]/g, "_");
+      var path = "songs/" + Date.now() + "_" + Math.random().toString(36).slice(2) + "_" + safeName;
+      var ref = storage.ref(path);
+      ref.put(file).then(function(){
+        return ref.getDownloadURL();
+      }).then(function(url){
+        return songsDb.collection("songs").add({
+          title: title,
+          url: url,
+          storagePath: path,
+          ts: Date.now()
+        });
+      }).then(function(){ cb(false); }).catch(function(){ cb(true); });
+    }
+
+    function deleteSong(song){
+      if(!song || !songsDb) return;
+      songsDb.collection("songs").doc(song.id).delete().catch(function(){});
+      if(song.storagePath && storage){ storage.ref(song.storagePath).delete().catch(function(){}); }
+    }
+
+    function subscribeToSongs(){
+      songsDb.collection("songs").orderBy("ts","asc").onSnapshot(function(snap){
+        var playingId = songsCache[currentSongIndex] ? songsCache[currentSongIndex].id : null;
+        songsCache = [];
+        snap.forEach(function(doc){
+          var d = doc.data();
+          songsCache.push({ id: doc.id, title: d.title || "Song", url: d.url, storagePath: d.storagePath, ts: d.ts });
+        });
+        // keep the currently-playing track "selected" if it's still around
+        // after an add/remove (possibly from the other device)
+        currentSongIndex = playingId ? songsCache.findIndex(function(s){ return s.id === playingId; }) : -1;
+        renderSongList();
+      }, function(){});
+    }
+
+    if(initFirebaseOnce()){
+      songsDb = db;
+      subscribeToSongs();
+    } else {
+      emptyEl.textContent = "Song sharing isn't set up yet.";
+      emptyEl.hidden = false;
+    }
   }
 
   /* ============================================================
@@ -951,7 +1152,7 @@
     if(appInited) return;
     appInited = true;
 
-    setupSpotifyPlayer();
+    setupMusicPlayer();
 
     $all(".nav-btn").forEach(function(btn){
       btn.addEventListener("click", function(){
@@ -1972,17 +2173,12 @@
 
         function scatterPieces(){
           pieces.forEach(function(p){ p.placed = false; p.el.classList.remove("placed"); });
-          // lay tray pieces below the board in a simple wrapping flow (reliable on mobile)
-          trayEl.style.position = "relative";
-          trayEl.style.marginTop = "14px";
-          trayEl.style.display = "flex";
-          trayEl.style.flexWrap = "wrap";
-          trayEl.style.gap = "6px";
-          trayEl.style.minHeight = (pieceH*0.9)+"px";
+          // tray box layout (border/background/wrap) lives in CSS now -- just
+          // reset each piece back to a nice big, easy-to-see tray thumbnail
           pieces.forEach(function(p){
             p.el.style.position = "static";
-            p.el.style.width = (pieceW*0.42)+"px";
-            p.el.style.height = (pieceH*0.42)+"px";
+            p.el.style.width = (pieceW*0.65)+"px";
+            p.el.style.height = (pieceH*0.65)+"px";
           });
           winEl.textContent = "";
         }
@@ -2021,7 +2217,13 @@
             var dx = pieceRect.left - targetLeft;
             var dy = pieceRect.top - targetTop;
             var dist = Math.sqrt(dx*dx+dy*dy);
+            var pieceCenterX = pieceRect.left + pieceRect.width/2;
+            var pieceCenterY = pieceRect.top + pieceRect.height/2;
+            var insideBoard = pieceCenterX >= boardRect.left && pieceCenterX <= boardRect.right &&
+                               pieceCenterY >= boardRect.top && pieceCenterY <= boardRect.bottom;
+
             if(dist < Math.max(boardRect.width,boardRect.height)*0.06){
+              // exactly right -- lock it into its true spot
               el.style.position = "absolute";
               el.style.left = p.correctLeftPct+"%";
               el.style.top = p.correctTopPct+"%";
@@ -2035,15 +2237,34 @@
               if(placedCount === pieces.length){
                 celebratePuzzleWin();
               }
+            } else if(insideBoard){
+              // not quite the right spot, but she set it down inside the
+              // board -- leave it exactly there so pieces can be freely
+              // arranged, just like a real puzzle, instead of snapping back
+              var leftPct = ((pieceRect.left - boardRect.left) / boardRect.width) * 100;
+              var topPct = ((pieceRect.top - boardRect.top) / boardRect.height) * 100;
+              el.style.position = "absolute";
+              el.style.left = leftPct+"%";
+              el.style.top = topPct+"%";
+              el.style.width = ((pieceW+pad*2)/BOARD_W*100)+"%";
+              el.style.height = ((pieceH+pad*2)/BOARD_H*100)+"%";
+              el.style.zIndex = 1;
+              boardEl.appendChild(el);
             } else {
+              // dropped back over the line (or off both areas) -- back it goes
               el.style.position = "static";
+              el.style.width = (pieceW*0.65)+"px";
+              el.style.height = (pieceH*0.65)+"px";
               el.style.zIndex = "";
+              trayEl.appendChild(el);
             }
           });
         }
 
         function resetAndScatter(){
-          pieces.forEach(function(p){ trayEl.appendChild(p.el); });
+          // re-lay the tray in a brand new random order each time, so the
+          // line never gives away the picture's layout by position
+          shuffleArray(pieces).forEach(function(p){ trayEl.appendChild(p.el); });
           placedCount = 0;
           scatterPieces();
         }
