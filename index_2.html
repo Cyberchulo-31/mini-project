@@ -1,0 +1,2454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>For My Princess</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Mulish:wght@400;600;700;800&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
+<style>
+  :root{
+    --bg:#FFF6F3;
+    --surface:#FFFFFF;
+    --surface-2:#FFEFEA;
+    --ink:#3A2230;
+    --muted:#8C6B78;
+    --accent:#D6577A;
+    --accent-2:#F3AFC2;
+    --accent-deep:#9C2F52;
+    --gold:#B98A3C;
+    --border:#F0D9DE;
+    --shadow:0 14px 34px -14px rgba(156,47,82,.28);
+    color-scheme: light dark;
+    --heart-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 90 C20 65 0 45 0 25 C0 8 15 0 28 0 C38 0 46 6 50 15 C54 6 62 0 72 0 C85 0 100 8 100 25 C100 45 80 65 50 90 Z' fill='white'/%3E%3C/svg%3E");
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1E0F17; --surface:#2A1420; --surface-2:#341A28; --ink:#F8E7EE;
+      --muted:#CE9FB1; --accent:#F2789C; --accent-2:#7A2E45; --accent-deep:#F6A9C1;
+      --gold:#DDBD79; --border:#4A2436; --shadow:0 14px 34px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1E0F17; --surface:#2A1420; --surface-2:#341A28; --ink:#F8E7EE;
+    --muted:#CE9FB1; --accent:#F2789C; --accent-2:#7A2E45; --accent-deep:#F6A9C1;
+    --gold:#DDBD79; --border:#4A2436; --shadow:0 14px 34px -14px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Mulish',system-ui,sans-serif;
+    padding-inline:16px;
+    padding-block:18px;
+  }
+  h1,h2,h3,.display{
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-weight:600;
+    text-wrap:balance;
+    margin:0;
+  }
+  button{font-family:inherit;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* ---------- Login ---------- */
+  #login-screen{
+    min-height:calc(100vh - 36px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #login-screen[hidden], #app[hidden]{ display:none; }
+  .login-card{
+    width:100%;
+    max-width:380px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:24px;
+    padding:36px 28px;
+    box-shadow:var(--shadow);
+    text-align:center;
+  }
+  .login-card .bloom{
+    width:64px;height:64px;margin:0 auto 14px;
+  }
+  .login-card h1{font-size:1.7rem;color:var(--accent-deep);}
+  .login-card p{color:var(--muted);font-size:.95rem;margin:8px 0 22px;}
+  #passcode-form{display:flex;flex-direction:column;gap:12px;}
+  .passcode-field{position:relative;}
+  #passcode-input{
+    width:100%;
+    font-size:1.4rem;
+    letter-spacing:.35em;
+    text-align:center;
+    padding:14px 44px 14px 10px;
+    border-radius:14px;
+    border:1.5px solid var(--border);
+    background:var(--surface-2);
+    color:var(--ink);
+    font-family:'Mulish',sans-serif;
+    font-weight:700;
+  }
+  #passcode-input:focus{outline:2px solid var(--accent);outline-offset:2px;}
+  #toggle-passcode{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    background:none;border:none;cursor:pointer;font-size:1.15rem;
+    padding:6px;line-height:1;color:var(--muted);
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    padding:13px 20px;
+    border-radius:14px;
+    font-weight:800;
+    font-size:1rem;
+    cursor:pointer;
+    box-shadow:0 8px 20px -8px rgba(214,87,122,.6);
+  }
+  .btn-primary:hover{background:var(--accent-deep);}
+  .btn-primary:focus-visible, button:focus-visible, input:focus-visible, .nav-btn:focus-visible{
+    outline:2px solid var(--accent-deep); outline-offset:2px;
+  }
+  #login-error{color:var(--accent-deep);font-size:.88rem;min-height:1.2em;font-weight:700;}
+
+  /* ---------- App shell ---------- */
+  #app{max-width:760px;margin:0 auto;}
+  header#topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;margin-bottom:14px;
+  }
+  header#topbar .who{font-family:'Cormorant Garamond',serif;font-size:1.05rem;color:var(--muted);}
+  #lock-btn{
+    background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:999px;padding:7px 13px;cursor:pointer;font-size:.85rem;
+  }
+
+  /* ---------- Spotify floating player (draggable vinyl) ---------- */
+  #spotify-widget{
+    position:fixed;z-index:40;touch-action:none;user-select:none;
+    -webkit-user-select:none;
+  }
+  #spotify-vinyl{
+    position:relative;width:58px;height:58px;padding:0;margin:0;
+    border:none;border-radius:50%;background:transparent;cursor:grab;
+    box-shadow:0 10px 22px -8px rgba(0,0,0,.55);
+  }
+  #spotify-vinyl:active{cursor:grabbing;}
+  .vinyl-disc{
+    position:absolute;inset:0;border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 50%, #FFF8FA 0 2.5px, transparent 3px),
+      radial-gradient(circle at 50% 50%, var(--accent-deep) 0 11px, transparent 11px),
+      repeating-radial-gradient(circle at 50% 50%, #333 0 2px, #101010 2px 4px);
+    animation:vinylSpin 4s linear infinite;
+    animation-play-state:paused;
+  }
+  #spotify-widget.open .vinyl-disc{animation-play-state:running;}
+  @keyframes vinylSpin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  .vinyl-badge{
+    position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;
+    background:var(--surface);border:2px solid var(--accent);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:.65rem;line-height:1;
+  }
+  #spotify-panel{
+    display:none;position:absolute;width:560px;max-width:92vw;
+    background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    box-shadow:var(--shadow);padding:12px;
+  }
+  #spotify-widget.open #spotify-panel{display:block;}
+  #spotify-widget.panel-right #spotify-panel{left:calc(100% + 10px);right:auto;}
+  #spotify-widget.panel-left #spotify-panel{right:calc(100% + 10px);left:auto;}
+  #spotify-widget.panel-down #spotify-panel{top:0;bottom:auto;}
+  #spotify-widget.panel-up #spotify-panel{bottom:0;top:auto;}
+  #spotify-panel-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:8px;font-size:.82rem;color:var(--muted);font-weight:800;
+  }
+  #spotify-panel-close{
+    background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:999px;width:24px;height:24px;cursor:pointer;font-size:.75rem;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #spotify-panel iframe{width:100%;height:352px;border:none;border-radius:12px;display:block;}
+  #spotify-open-link{
+    display:block;text-align:center;margin-top:8px;font-size:.78rem;
+    color:var(--accent-deep);font-weight:800;text-decoration:none;
+  }
+  nav#tabs{
+    display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:8px;box-shadow:var(--shadow);margin-bottom:18px;
+    position:sticky;top:env(safe-area-inset-top,0px);z-index:5;
+  }
+  .nav-btn{
+    border:none;background:transparent;color:var(--muted);
+    padding:9px 14px;border-radius:12px;font-weight:800;font-size:.86rem;
+    cursor:pointer;display:flex;align-items:center;gap:6px;
+  }
+  .nav-btn.active{background:var(--accent);color:#fff;}
+  .tab{display:none;animation:fadeIn .35s ease;}
+  .tab.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:22px;padding:22px;box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  .muted{color:var(--muted);}
+  .eyebrow{
+    text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;
+    font-weight:800;color:var(--accent-deep);
+  }
+
+  /* ---------- Home ---------- */
+  #greeting-name{color:var(--accent-deep);}
+  #today-note{margin-top:10px;font-style:italic;color:var(--muted);}
+  .bouquet-wrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+  .bouquet-wrap svg{width:150px;height:170px;flex:none;}
+  .bouquet-caption{flex:1;min-width:180px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:8px;}
+  .stat-pill{
+    background:var(--surface-2);border-radius:16px;padding:14px 16px;text-align:center;
+  }
+  .stat-pill .n{font-size:1.5rem;font-weight:800;color:var(--accent-deep);}
+  .stat-pill .l{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+  .meet-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;}
+  .meet-row label{font-size:.82rem;color:var(--muted);display:block;margin-bottom:4px;}
+  .meet-row input{
+    padding:10px;border-radius:12px;border:1.5px solid var(--border);
+    background:var(--surface-2);color:var(--ink);font-family:inherit;
+  }
+  .btn-ghost{
+    background:var(--surface-2);border:1.5px solid var(--border);color:var(--accent-deep);
+    padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;
+  }
+  #meet-countdown,#apart-countdown{margin-top:12px;font-size:1.05rem;}
+
+  /* ---------- Photos ---------- */
+  #photo-toolbar{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    margin-bottom:12px;
+  }
+  #photo-add-btn{display:inline-flex;align-items:center;gap:6px;}
+  #photo-whoami{
+    background:var(--surface-2);border:1.5px solid var(--border);color:var(--accent-deep);
+    padding:10px 14px;border-radius:12px;font-weight:800;cursor:pointer;font-family:inherit;
+    font-size:.85rem;
+  }
+  #photo-status{font-size:.82rem;color:var(--muted);min-height:1.2em;margin:0 0 10px;}
+  .photo-grid{
+    display:flex;flex-wrap:wrap;gap:16px;justify-content:center;
+    padding:10px 4px 4px;
+  }
+  .photo-card{
+    position:relative;flex:0 0 auto;width:112px;height:112px;border-radius:50%;overflow:hidden;cursor:pointer;
+    background:var(--surface-2);box-shadow:0 10px 22px -10px rgba(0,0,0,.35);
+    border:3px solid rgba(255,255,255,.65);padding:0;
+    animation:floaty ease-in-out infinite alternate;
+  }
+  .photo-card img, .photo-card video{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-card .by{
+    position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
+    background:rgba(30,10,18,.6);color:#fff;white-space:nowrap;
+    font-size:.6rem;font-weight:800;padding:3px 7px;border-radius:999px;
+  }
+  .photo-card .play-badge{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(30,10,18,.5);color:#fff;width:30px;height:30px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;
+  }
+  @keyframes floaty{
+    from{transform:translateY(0) rotate(-2deg);}
+    to{transform:translateY(-14px) rotate(2deg);}
+  }
+  .photo-placeholder{cursor:default;opacity:.55;}
+  .photo-empty{
+    text-align:center;padding:10px 14px 4px;color:var(--muted);font-size:.9rem;
+    width:100%;
+  }
+  #photo-modal{
+    position:fixed;inset:0;background:rgba(30,10,18,.72);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  #photo-modal.show{display:flex;}
+  #photo-modal .box{
+    position:relative;
+    background:var(--surface);border-radius:20px;padding:16px;max-width:min(92vw,480px);text-align:center;
+  }
+  #photo-modal img, #photo-modal video{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;background:#000;}
+
+  /* Memory transitions: each time the slideshow (or Prev/Next) moves to a
+     new photo, one of a few random effects plays -- a heart-shaped iris
+     open/close, a plain cross-fade, or a soft zoom fade. */
+  @keyframes heartIn{
+    from{ -webkit-mask-size:0% 0%; mask-size:0% 0%; opacity:.5; }
+    to{ -webkit-mask-size:280% 280%; mask-size:280% 280%; opacity:1; }
+  }
+  @keyframes heartOut{
+    from{ -webkit-mask-size:280% 280%; mask-size:280% 280%; opacity:1; }
+    to{ -webkit-mask-size:0% 0%; mask-size:0% 0%; opacity:.5; }
+  }
+  @keyframes fadeInPlain{ from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:none;} }
+  @keyframes fadeOutPlain{ from{opacity:1;transform:none;} to{opacity:0;transform:translateY(-10px);} }
+  @keyframes zoomInPlain{ from{opacity:0;transform:scale(.85);} to{opacity:1;transform:scale(1);} }
+  @keyframes zoomOutPlain{ from{opacity:1;transform:scale(1);} to{opacity:0;transform:scale(1.12);} }
+
+  #photo-modal img.enter-heart, #photo-modal video.enter-heart,
+  #photo-modal img.exit-heart, #photo-modal video.exit-heart{
+    -webkit-mask-image:var(--heart-mask); mask-image:var(--heart-mask);
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    -webkit-mask-position:center; mask-position:center;
+  }
+  #photo-modal img.enter-heart, #photo-modal video.enter-heart{ animation:heartIn .55s ease-out; }
+  #photo-modal img.exit-heart, #photo-modal video.exit-heart{ animation:heartOut .4s ease-in forwards; }
+  #photo-modal img.enter-fade, #photo-modal video.enter-fade{ animation:fadeInPlain .45s ease-out; }
+  #photo-modal img.exit-fade, #photo-modal video.exit-fade{ animation:fadeOutPlain .35s ease-in forwards; }
+  #photo-modal img.enter-zoom, #photo-modal video.enter-zoom{ animation:zoomInPlain .45s cubic-bezier(.2,.7,.3,1); }
+  #photo-modal img.exit-zoom, #photo-modal video.exit-zoom{ animation:zoomOutPlain .35s ease-in forwards; }
+  #photo-modal .modal-meta{font-size:.8rem;color:var(--muted);margin:10px 0 0;}
+  #photo-modal .modal-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
+  .modal-nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    background:rgba(30,10,18,.55);color:#fff;border:none;width:38px;height:38px;
+    border-radius:50%;font-size:1.3rem;cursor:pointer;z-index:2;
+    align-items:center;justify-content:center;
+  }
+  .modal-nav.prev{left:-6px;}
+  .modal-nav.next{right:-6px;}
+  .btn-danger{
+    background:var(--surface-2);border:1.5px solid var(--accent-deep);color:var(--accent-deep);
+    padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;
+  }
+
+  /* ---------- Puzzle ---------- */
+  #puzzle-area{
+    position:relative;width:100%;max-width:520px;margin:0 auto;
+    aspect-ratio:480/390;
+  }
+  #puzzle-tray, #puzzle-board{position:absolute;inset:0;}
+  #puzzle-board{border-radius:16px;border:2px dashed var(--border);overflow:hidden;background:var(--surface-2);}
+  .piece{position:absolute;cursor:grab;touch-action:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));}
+  .piece.placed{cursor:default;}
+  #puzzle-controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  #puzzle-win{
+    text-align:center;font-weight:800;color:var(--accent-deep);margin-top:10px;min-height:1.4em;
+  }
+
+  /* ---------- Puzzle win celebration ---------- */
+  #puzzle-celebrate{
+    position:fixed;inset:0;z-index:70;display:none;
+    align-items:center;justify-content:center;
+    background:rgba(30,10,18,.55);overflow:hidden;
+  }
+  #puzzle-celebrate.show{display:flex;}
+  .celebrate-box{
+    position:relative;z-index:2;background:var(--surface);border-radius:24px;
+    padding:32px 26px;text-align:center;max-width:min(90vw,360px);box-shadow:var(--shadow);
+    animation:celebrateBoxIn .5s cubic-bezier(.2,.8,.3,1.2);
+  }
+  @keyframes celebrateBoxIn{ from{opacity:0;transform:scale(.7) translateY(20px);} to{opacity:1;transform:none;} }
+  .celebrate-star{
+    font-size:3.2rem;display:inline-block;
+    animation:starSpin 1s ease-out;
+    filter:drop-shadow(0 6px 14px rgba(185,138,60,.6));
+  }
+  @keyframes starSpin{ from{transform:scale(0) rotate(-30deg);} 60%{transform:scale(1.25) rotate(12deg);} to{transform:scale(1) rotate(0deg);} }
+  .celebrate-box h3{font-size:1.4rem;color:var(--accent-deep);margin:10px 0 6px;}
+  .celebrate-box p{color:var(--muted);font-size:.95rem;margin:0 0 18px;}
+  #celebrate-hearts{position:absolute;inset:0;pointer-events:none;z-index:1;}
+  .flying-heart{
+    position:absolute;bottom:-8%;font-size:1.6rem;
+    animation-name:heartFly;animation-timing-function:ease-out;animation-fill-mode:forwards;
+  }
+  @keyframes heartFly{
+    0%{ transform:translateY(0) scale(.6); opacity:0; }
+    12%{ opacity:1; }
+    100%{ transform:translateY(-115vh) scale(1.1); opacity:0; }
+  }
+
+  /* ---------- Calendar ---------- */
+  #cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  #cal-head button{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+    padding:6px 12px;cursor:pointer;color:var(--accent-deep);font-weight:800;
+  }
+  #cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-dow{text-align:center;font-size:.68rem;color:var(--muted);font-weight:800;text-transform:uppercase;}
+  .cal-day{
+    aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:.82rem;position:relative;
+    background:var(--surface-2);
+  }
+  .cal-day.empty{background:transparent;}
+  .cal-day.today{outline:2px solid var(--accent);}
+  .cal-day.special{background:var(--accent-2);color:var(--accent-deep);font-weight:800;}
+  .cal-day .dot{position:absolute;bottom:4px;font-size:.6rem;}
+  #cal-legend{margin-top:10px;font-size:.78rem;color:var(--muted);}
+
+  /* ---------- Coloring ---------- */
+  #color-canvas-wrap{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:1/1;}
+  #paint-canvas,#lineart-canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:16px;}
+  #lineart-canvas{pointer-events:none;}
+  #paint-canvas{background:#fff;touch-action:none;}
+  #palette{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;justify-content:center;}
+  .swatch{
+    width:30px;height:30px;border-radius:50%;border:2px solid var(--border);cursor:pointer;
+  }
+  .swatch.active{outline:2px solid var(--accent-deep);outline-offset:2px;}
+  #brush-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}
+  #color-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
+  #color-save-status{text-align:center;font-size:.78rem;color:var(--muted);min-height:1.2em;margin-top:8px;}
+
+  /* ---------- Coloring: choose-a-drawing picker ---------- */
+  #coloring-picker{
+    position:fixed;inset:0;background:rgba(30,10,18,.72);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:60;
+  }
+  #coloring-picker.show{display:flex;}
+  .picker-box{
+    background:var(--surface);border-radius:20px;padding:18px;max-width:min(92vw,480px);
+    max-height:80vh;overflow-y:auto;text-align:center;
+  }
+  .picker-head{
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;
+    font-weight:800;color:var(--accent-deep);
+  }
+  #picker-close{
+    background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:999px;width:28px;height:28px;cursor:pointer;font-size:.85rem;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #picker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .picker-item{
+    border:2px solid var(--border);border-radius:12px;background:var(--surface-2);cursor:pointer;
+    padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .picker-item.active{border-color:var(--accent-deep);}
+  .picker-item img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:#fff;}
+  .picker-item .picker-vector-icon{
+    width:100%;aspect-ratio:1/1;border-radius:8px;background:#fff;display:flex;
+    align-items:center;justify-content:center;font-size:1.8rem;
+  }
+  .picker-item .picker-name{font-size:.72rem;color:var(--muted);font-weight:700;}
+
+  /* ---------- Watch ---------- */
+  #watch-card{text-align:center;}
+  #watch-line{font-family:'Cormorant Garamond',serif;font-size:1.3rem;margin:14px 0 20px;color:var(--accent-deep);}
+  .netflix-btn{
+    display:inline-block;background:#B3123B;color:#fff;text-decoration:none;
+    padding:14px 26px;border-radius:14px;font-weight:800;box-shadow:0 10px 22px -10px rgba(179,18,59,.7);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .tab,.photo-card,.vinyl-disc,.flying-heart,.celebrate-star,.celebrate-box,
+    #photo-modal img,#photo-modal video{animation:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-card">
+    <svg class="bloom" viewBox="0 0 100 100" id="login-bloom"></svg>
+    <h1>For My <span id="login-name">Princess</span></h1>
+    <p>A little private world, just for you.<br>Enter the passcode to come in.</p>
+    <form id="passcode-form" autocomplete="off">
+      <div class="passcode-field">
+        <input id="passcode-input" type="password" inputmode="numeric" maxlength="12" placeholder="passcode" aria-label="Passcode" autocomplete="off">
+        <button type="button" id="toggle-passcode" aria-label="Show passcode" aria-pressed="false">👁️</button>
+      </div>
+      <button type="submit" class="btn-primary">Come in 💗</button>
+      <div id="login-error" role="alert"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header id="topbar">
+    <span class="who">for <strong id="header-name">you</strong></span>
+    <span style="display:flex;gap:8px;">
+      <button id="lock-btn" type="button">🔒 Lock</button>
+    </span>
+  </header>
+
+  <nav id="tabs">
+    <button class="nav-btn active" data-tab="home" type="button">🏡 Home</button>
+    <button class="nav-btn" data-tab="photos" type="button">💗 Memories</button>
+    <button class="nav-btn" data-tab="puzzle" type="button">🧩 Puzzle</button>
+    <button class="nav-btn" data-tab="calendar" type="button">📅 Calendar</button>
+    <button class="nav-btn" data-tab="color" type="button">🎨 Color</button>
+    <button class="nav-btn" data-tab="watch" type="button">🎬 Watch</button>
+  </nav>
+
+  <main>
+    <!-- HOME -->
+    <section class="tab active" id="tab-home">
+      <div class="card">
+        <p class="eyebrow" id="home-date"></p>
+        <h2 style="font-size:1.6rem;">Hello, <span id="greeting-name"></span></h2>
+        <p id="today-note"></p>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow">Today's bouquet</p>
+        <div class="bouquet-wrap">
+          <svg id="bouquet-svg" viewBox="0 0 200 220" aria-label="Today's flower bouquet"></svg>
+          <div class="bouquet-caption">
+            <h3 id="bouquet-name" style="font-size:1.3rem;color:var(--accent-deep);"></h3>
+            <p class="muted" id="bouquet-line" style="font-size:.9rem;"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow">Us, so far</p>
+        <div class="stat-grid" id="together-stats"></div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow">Until we meet again</p>
+        <div class="meet-row">
+          <div>
+            <label for="meet-date">When do we see each other next?</label>
+            <input type="datetime-local" id="meet-date">
+          </div>
+          <button class="btn-ghost" id="meet-save" type="button">Save</button>
+        </div>
+        <div id="meet-countdown"></div>
+        <div class="stat-grid" id="meet-stats"></div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow">Time apart</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:2px;">Update this with the last day we were physically together — whenever we part, or agree on a next visit.</p>
+        <div class="meet-row">
+          <div>
+            <label for="apart-date">Last day we were together</label>
+            <input type="date" id="apart-date">
+          </div>
+          <button class="btn-ghost" id="apart-save" type="button">Save</button>
+        </div>
+        <div id="apart-countdown"></div>
+        <div class="stat-grid" id="apart-stats"></div>
+      </div>
+    </section>
+
+    <!-- PHOTOS -->
+    <section class="tab" id="tab-photos">
+      <div class="card">
+        <p class="eyebrow">Beautiful memories</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Add as many photos and videos as you want — you can both add memories here, anytime, from any device.</p>
+        <div id="photo-toolbar">
+          <label class="btn-primary" id="photo-add-btn">
+            + Add Memories
+            <input type="file" id="photo-input" accept="image/*,video/*" multiple style="display:none;">
+          </label>
+          <button class="btn-ghost" id="slideshow-btn" type="button">▶ Slideshow</button>
+          <select id="photo-whoami" aria-label="Who's adding memories"></select>
+        </div>
+        <p id="photo-status"></p>
+        <div id="photo-grid" class="photo-grid"></div>
+      </div>
+    </section>
+
+    <!-- PUZZLE -->
+    <section class="tab" id="tab-puzzle">
+      <div class="card">
+        <p class="eyebrow">Put us back together</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Drag the pieces onto the board and rebuild one of your memories, one piece at a time.</p>
+        <div id="puzzle-area">
+          <div id="puzzle-board"></div>
+          <div id="puzzle-tray"></div>
+        </div>
+        <div id="puzzle-win"></div>
+        <div id="puzzle-controls">
+          <button class="btn-ghost" id="puzzle-shuffle" type="button">🔀 Shuffle</button>
+          <button class="btn-ghost" id="puzzle-newphoto" type="button">🖼 New Photo</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="tab" id="tab-calendar">
+      <div class="card">
+        <div id="cal-head">
+          <button id="cal-prev" type="button" aria-label="Previous month">‹</button>
+          <h3 id="cal-title" style="font-size:1.2rem;"></h3>
+          <button id="cal-next" type="button" aria-label="Next month">›</button>
+        </div>
+        <div id="cal-grid"></div>
+        <p id="cal-legend">💗 = monthiversary of Jan 8, 2026</p>
+      </div>
+    </section>
+
+    <!-- COLOR -->
+    <section class="tab" id="tab-color">
+      <div class="card">
+        <p class="eyebrow">Something to do when you're bored</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;" id="color-page-name"></p>
+        <div id="color-canvas-wrap">
+          <canvas id="paint-canvas" width="420" height="420"></canvas>
+          <canvas id="lineart-canvas" width="420" height="420"></canvas>
+        </div>
+        <div id="palette"></div>
+        <div id="brush-row"></div>
+        <div id="color-controls">
+          <button class="btn-ghost" id="color-shuffle" type="button">🔀 Shuffle</button>
+          <button class="btn-ghost" id="color-choose" type="button">🖼 Choose</button>
+          <button class="btn-primary" id="color-save" type="button">💾 Save</button>
+          <button class="btn-ghost" id="color-clear" type="button">Clear page</button>
+        </div>
+        <p id="color-save-status"></p>
+      </div>
+    </section>
+
+    <!-- WATCH -->
+    <section class="tab" id="tab-watch">
+      <div class="card" id="watch-card">
+        <p class="eyebrow">Movie night</p>
+        <h2 style="font-size:1.5rem;margin-top:8px;">Pick anything you're in the mood for 🎬</h2>
+        <p id="watch-line"></p>
+        <a class="netflix-btn" href="https://www.netflix.com/browse" target="_blank" rel="noopener">Open Netflix</a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="spotify-widget">
+  <button id="spotify-vinyl" type="button" aria-label="Music player -- tap to open, drag to move">
+    <span class="vinyl-disc"></span>
+    <span class="vinyl-badge">🎵</span>
+  </button>
+  <div id="spotify-panel">
+    <div id="spotify-panel-head">
+      <span>Our playlist 💗</span>
+      <button id="spotify-panel-close" type="button" aria-label="Close player">✕</button>
+    </div>
+    <iframe id="spotify-frame" title="Spotify playlist" allow="autoplay; encrypted-media; clipboard-write" loading="lazy"></iframe>
+    <a id="spotify-open-link" href="#" target="_blank" rel="noopener">Open full playlist in Spotify ↗</a>
+  </div>
+</div>
+
+<div id="photo-modal">
+  <div class="box">
+    <button class="modal-nav prev" id="modal-prev" type="button" aria-label="Previous memory">‹</button>
+    <button class="modal-nav next" id="modal-next" type="button" aria-label="Next memory">›</button>
+    <img id="modal-img" src="" alt="">
+    <video id="modal-video" controls playsinline style="display:none;"></video>
+    <p class="modal-meta" id="modal-meta"></p>
+    <div class="modal-actions">
+      <button class="btn-danger" id="modal-delete" type="button">Delete</button>
+      <button class="btn-primary" id="modal-close" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="puzzle-celebrate" hidden>
+  <div class="celebrate-box">
+    <div class="celebrate-star">⭐</div>
+    <h3>You complete me 💛</h3>
+    <p id="celebrate-line"></p>
+    <button class="btn-primary" id="celebrate-close" type="button">Close</button>
+  </div>
+  <div id="celebrate-hearts"></div>
+</div>
+
+<div id="coloring-picker" hidden>
+  <div class="picker-box">
+    <div class="picker-head">
+      <span>Pick a drawing 🎨</span>
+      <button id="picker-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <div id="picker-grid"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     EDIT-ME CONFIG — everything Nosa is most likely to update
+     ============================================================ */
+  var PASSCODE = "080126";
+  var TOGETHER_SINCE = new Date(2026, 0, 8, 20, 30, 0); // Jan 8, 2026, 8:30 PM
+  var NICKNAMES = ["Moja Lubav", "Princess", "Beautiful Goddess Queen"];
+
+  // Extra dates to highlight on the calendar. Format: 'YYYY-MM-DD'.
+  // Example: { date: '2026-12-25', label: 'Christmas 🎄' }
+  var SPECIAL_DATES = [];
+
+  // Background music: a small floating Spotify player pinned to the bottom
+  // of the screen, visible on every tab. Paste any Spotify playlist (or
+  // album/track) share link below and it'll show up automatically. To swap
+  // in a different playlist later, just replace this link with a new one
+  // copied from Spotify's "Share" menu. Leave it empty ("") and the player
+  // won't show up at all.
+  var SPOTIFY_PLAYLIST_URL = "https://open.spotify.com/playlist/7pnaAvZmK7NOwz9MaqqZy9?si=35c0c0d5b82b4b2d";
+
+  // Photo sharing (both of you can add unlimited photos, from any device).
+  // Fill these in with your Firebase project's web app config to turn it on —
+  // see the setup instructions Nosa was given. Leave apiKey empty ("") and
+  // the Photos tab will just say sharing isn't set up yet.
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyApE7E1KJvy5nEkiMcfwR7wouhK70xI_R4",
+    authDomain: "mini-project-dfb4c.firebaseapp.com",
+    projectId: "mini-project-dfb4c",
+    storageBucket: "mini-project-dfb4c.firebasestorage.app",
+    messagingSenderId: "686296086210",
+    appId: "1:686296086210:web:45afd75a1caae49dcead5b"
+  };
+
+  var TODAY_NOTES = [
+    "Just so you know — I'm thinking about you right now.",
+    "Every day with you still feels like the good kind of nervous.",
+    "You make ordinary days feel like something worth remembering.",
+    "Somewhere, at some point today, I smiled thinking of you.",
+    "You're the best thing I get to look forward to.",
+    "If today is hard, remember I'm in your corner.",
+    "Still choosing you. Still will tomorrow.",
+    "You are so deeply loved, moja lubav.",
+    "Home isn't a place for me, it's you.",
+    "Take today slow — you're allowed to rest."
+  ];
+
+  var WATCH_LINES = [
+    "How about something ridiculous and funny tonight?",
+    "A slow, cozy drama sounds nice right about now.",
+    "Feeling a good cry? Grab the tissues.",
+    "A true crime binge, maybe?",
+    "Something you've already seen ten times — comfort watch mode.",
+    "Let fate (and the algorithm) decide tonight."
+  ];
+
+  /* ============================================================
+     UTILITIES
+     ============================================================ */
+  function $(sel, root){ return (root||document).querySelector(sel); }
+  function $all(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+  function pad2(n){ return n<10 ? "0"+n : ""+n; }
+
+  function safeGet(key){ try { return localStorage.getItem(key); } catch(e){ return null; } }
+  function safeSet(key,val){ try { localStorage.setItem(key,val); } catch(e){} }
+
+  // deterministic seeded RNG (mulberry32)
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function seedFromDate(d){
+    return d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+  }
+  function pickDeterministic(arr, seed){
+    var rng = mulberry32(seed);
+    return arr[Math.floor(rng()*arr.length)];
+  }
+
+  /* ============================================================
+     LOGIN
+     ============================================================ */
+  var SESSION_KEY = "fmp_unlocked";
+
+  function drawLoginBloom(){
+    var svg = $("#login-bloom");
+    svg.innerHTML = pomPom(50,50,42,"#F3AFC2","#E8749B","#D6577A");
+  }
+
+  function setLoginName(){
+    $("#login-name").textContent = pickDeterministic(NICKNAMES, Date.now());
+  }
+
+  function showApp(){
+    $("#login-screen").setAttribute("hidden","");
+    $("#app").removeAttribute("hidden");
+    initAppOnce();
+  }
+
+  // sessionStorage (not localStorage) on purpose — she re-enters the
+  // passcode in a fresh tab / new day, but reloading the same tab stays in.
+  function tryLogin(code){
+    if(code === PASSCODE){
+      try { sessionStorage.setItem(SESSION_KEY, "1"); } catch(e){}
+      showApp();
+      return true;
+    }
+    return false;
+  }
+
+  $("#passcode-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = $("#passcode-input").value.trim();
+    if(!tryLogin(v)){
+      $("#login-error").textContent = "That's not quite it — try again 💭";
+      $("#passcode-input").value = "";
+      $("#passcode-input").focus();
+    }
+  });
+
+  $("#toggle-passcode").addEventListener("click", function(){
+    var input = $("#passcode-input");
+    var showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    this.textContent = showing ? "👁️" : "🙈";
+    this.setAttribute("aria-label", showing ? "Show passcode" : "Hide passcode");
+    this.setAttribute("aria-pressed", showing ? "false" : "true");
+    input.focus();
+  });
+
+  $("#lock-btn").addEventListener("click", function(){
+    try { sessionStorage.removeItem(SESSION_KEY); } catch(e){}
+    $("#app").setAttribute("hidden","");
+    $("#login-screen").removeAttribute("hidden");
+    $("#passcode-input").value = "";
+    $("#login-error").textContent = "";
+  });
+
+  drawLoginBloom();
+  setLoginName();
+
+  /* ============================================================
+     SPOTIFY PLAYER
+     A small draggable "vinyl record" icon that floats on top of the
+     page (visible on every tab, since the whole site is really one
+     page under the hood). Tap it to open a little playlist panel;
+     drag it anywhere on the screen and it remembers where you left it.
+     Uses Spotify's own official embed widget, so Spotify handles the
+     actual licensing/playback -- we're just showing their player.
+     Because it's an embedded iframe, the person has to tap play
+     themselves the first time (browsers and Spotify both block silent
+     autoplay here) -- after that it behaves like a normal Spotify
+     player.
+     ============================================================ */
+  var SPOTIFY_POS_KEY = "fmp_spotify_pos";
+  var spotifySetUp = false;
+
+  function spotifyEmbedUrl(){
+    if(!SPOTIFY_PLAYLIST_URL) return null;
+    var m = SPOTIFY_PLAYLIST_URL.match(/open\.spotify\.com\/(playlist|album|track)\/([A-Za-z0-9]+)/);
+    if(!m) return null;
+    return "https://open.spotify.com/embed/" + m[1] + "/" + m[2] + "?utm_source=generator&theme=0";
+  }
+
+  function setupSpotifyPlayer(){
+    if(spotifySetUp) return;
+    var embedUrl = spotifyEmbedUrl();
+    if(!embedUrl) return;
+    spotifySetUp = true;
+
+    var widget = $("#spotify-widget");
+    var vinyl = $("#spotify-vinyl");
+    var panel = $("#spotify-panel");
+    var frame = $("#spotify-frame");
+    var closeBtn = $("#spotify-panel-close");
+    var loaded = false;
+
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+    function updatePanelSide(x, y, w, h){
+      var openLeft = (x + w/2) > window.innerWidth/2;
+      var openUp = (y + h/2) > window.innerHeight/2;
+      widget.classList.toggle("panel-left", openLeft);
+      widget.classList.toggle("panel-right", !openLeft);
+      widget.classList.toggle("panel-up", openUp);
+      widget.classList.toggle("panel-down", !openUp);
+    }
+
+    function applyPosition(x, y, save){
+      var w = widget.offsetWidth || 58, h = widget.offsetHeight || 58;
+      x = clamp(x, 8, Math.max(8, window.innerWidth - w - 8));
+      y = clamp(y, 8, Math.max(8, window.innerHeight - h - 8));
+      widget.style.left = x + "px";
+      widget.style.top = y + "px";
+      updatePanelSide(x, y, w, h);
+      if(save){ safeSet(SPOTIFY_POS_KEY, JSON.stringify({x:x, y:y})); }
+    }
+
+    // Start docked on the right side, vertically centered -- or wherever
+    // it was last left, if it's been moved before.
+    var saved = null;
+    var rawSaved = safeGet(SPOTIFY_POS_KEY);
+    if(rawSaved){
+      try { saved = JSON.parse(rawSaved); } catch(e){ saved = null; }
+    }
+    if(saved && typeof saved.x === "number" && typeof saved.y === "number"){
+      applyPosition(saved.x, saved.y, false);
+    } else {
+      applyPosition(window.innerWidth - 74, (window.innerHeight/2) - 29, false);
+    }
+
+    window.addEventListener("resize", function(){
+      var rect = widget.getBoundingClientRect();
+      applyPosition(rect.left, rect.top, false);
+    });
+
+    // A plain, direct link to the same playlist in the real Spotify app --
+    // the embed above only ever plays 30-second previews on a phone (that's
+    // a Spotify limitation, not something code can fix), so this is the
+    // reliable way to get full songs playing on mobile. On desktop it's
+    // just a nice "open in the full app" shortcut.
+    var openLink = $("#spotify-open-link");
+    if(openLink){ openLink.href = SPOTIFY_PLAYLIST_URL; }
+
+    function openPanel(){
+      if(!loaded){ frame.src = embedUrl; loaded = true; }
+      widget.classList.add("open");
+      var rect = widget.getBoundingClientRect();
+      updatePanelSide(rect.left, rect.top, rect.width, rect.height);
+    }
+    function closePanel(){ widget.classList.remove("open"); }
+    function togglePanel(){
+      if(widget.classList.contains("open")) closePanel(); else openPanel();
+    }
+    closeBtn.addEventListener("click", function(e){ e.stopPropagation(); closePanel(); });
+
+    // Dragging: a small pointer-move threshold tells a drag apart from a
+    // tap, so tapping the vinyl still opens/closes the panel normally.
+    var dragging = false, moved = false, startX = 0, startY = 0, origX = 0, origY = 0, activePointerId = null;
+    var DRAG_THRESHOLD = 6;
+
+    vinyl.addEventListener("pointerdown", function(e){
+      dragging = true; moved = false;
+      activePointerId = e.pointerId;
+      try { vinyl.setPointerCapture(activePointerId); } catch(err){}
+      startX = e.clientX; startY = e.clientY;
+      var rect = widget.getBoundingClientRect();
+      origX = rect.left; origY = rect.top;
+    });
+    vinyl.addEventListener("pointermove", function(e){
+      if(!dragging) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      if(Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) moved = true;
+      if(moved){ applyPosition(origX + dx, origY + dy, false); }
+    });
+    function endDrag(){
+      if(!dragging) return;
+      dragging = false;
+      try { vinyl.releasePointerCapture(activePointerId); } catch(err){}
+      if(moved){
+        var rect = widget.getBoundingClientRect();
+        applyPosition(rect.left, rect.top, true);
+      } else {
+        togglePanel();
+      }
+    }
+    vinyl.addEventListener("pointerup", endDrag);
+    vinyl.addEventListener("pointercancel", endDrag);
+  }
+
+  /* ============================================================
+     TABS
+     ============================================================ */
+  var appInited = false;
+  function initAppOnce(){
+    if(appInited) return;
+    appInited = true;
+
+    setupSpotifyPlayer();
+
+    $all(".nav-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        $all(".nav-btn").forEach(function(b){ b.classList.remove("active"); });
+        $all(".tab").forEach(function(t){ t.classList.remove("active"); });
+        btn.classList.add("active");
+        $("#tab-"+btn.dataset.tab).classList.add("active");
+        if(btn.dataset.tab === "photos"){ startSlideshow(); }
+      });
+    });
+
+    var nickname = pickDeterministic(NICKNAMES, Date.now());
+    $("#greeting-name").textContent = nickname;
+    $("#header-name").textContent = nickname;
+
+    var now = new Date();
+    $("#home-date").textContent = now.toLocaleDateString(undefined,{weekday:"long", year:"numeric", month:"long", day:"numeric"});
+    $("#today-note").textContent = pickDeterministic(TODAY_NOTES, seedFromDate(now)+7);
+    $("#watch-line").textContent = pickDeterministic(WATCH_LINES, seedFromDate(now)+3);
+
+    renderBouquet();
+    startTogetherClock();
+    setupMeetAgain();
+    setupTimeApart();
+    initPhotoSync();
+    setupPuzzle();
+    setupCalendar();
+    setupColoring();
+  }
+
+  /* ============================================================
+     FLOWER / BOUQUET DRAWING (pure SVG strings)
+     ============================================================ */
+  function petal(cx,cy,angle,len,wid,color){
+    return '<ellipse cx="'+cx+'" cy="'+(cy-len/2)+'" rx="'+(wid/2)+'" ry="'+(len/2)+
+      '" fill="'+color+'" transform="rotate('+angle+' '+cx+' '+cy+')"/>';
+  }
+  function radialBloom(cx,cy,count,len,wid,petalColor,centerColor,centerR){
+    var out = "";
+    for(var i=0;i<count;i++){
+      out += petal(cx,cy,i*(360/count),len,wid,petalColor);
+    }
+    out += '<circle cx="'+cx+'" cy="'+cy+'" r="'+centerR+'" fill="'+centerColor+'"/>';
+    return out;
+  }
+  function pomPom(cx,cy,r,outer,mid,inner){
+    var out = "";
+    var rings = [
+      {rad:r*0.9, count:10, size:r*0.42, color:outer},
+      {rad:r*0.55, count:8, size:r*0.36, color:mid},
+      {rad:r*0.22, count:6, size:r*0.3, color:inner}
+    ];
+    rings.forEach(function(ring){
+      for(var i=0;i<ring.count;i++){
+        var a = (i*(360/ring.count)) * Math.PI/180;
+        var x = cx + Math.cos(a)*ring.rad;
+        var y = cy + Math.sin(a)*ring.rad*0.9;
+        out += '<circle cx="'+x+'" cy="'+y+'" r="'+ring.size+'" fill="'+ring.color+'" opacity="0.95"/>';
+      }
+    });
+    out += '<circle cx="'+cx+'" cy="'+cy+'" r="'+(r*0.16)+'" fill="'+inner+'"/>';
+    return out;
+  }
+  function tulip(cx,cy,r,color){
+    var top = cy - r;
+    return '<path d="M '+(cx-r*0.75)+' '+cy+' Q '+(cx-r*0.9)+' '+top+' '+cx+' '+top+
+      ' Q '+(cx+r*0.9)+' '+top+' '+(cx+r*0.75)+' '+cy+
+      ' Q '+cx+' '+(cy+r*0.35)+' '+(cx-r*0.75)+' '+cy+' Z" fill="'+color+'"/>';
+  }
+
+  var FLOWER_TYPES = [
+    {name:"Peonies", weight:50,
+      draw:function(cx,cy,r,rng){ return pomPom(cx,cy,r,"#F6C6D6","#EE93AF","#D6577A"); }},
+    {name:"Roses", weight:15,
+      draw:function(cx,cy,r,rng){ return pomPom(cx,cy,r*0.85,"#E23B5B","#C21F42","#8C1230"); }},
+    {name:"Tulips", weight:15,
+      draw:function(cx,cy,r,rng){ return tulip(cx,cy,r*0.9, rng()>0.5 ? "#E8618A" : "#F2A65A"); }},
+    {name:"Sunflowers", weight:10,
+      draw:function(cx,cy,r,rng){ return radialBloom(cx,cy,12,r*1.5,r*0.55,"#F4B93C","#6B4423",r*0.4); }},
+    {name:"Daisies", weight:10,
+      draw:function(cx,cy,r,rng){ return radialBloom(cx,cy,10,r*1.2,r*0.32,"#FFFFFF","#F4B93C",r*0.32); }}
+  ];
+
+  function pickFlowerType(rng){
+    var total = FLOWER_TYPES.reduce(function(a,f){return a+f.weight;},0);
+    var roll = rng()*total, cum = 0;
+    for(var i=0;i<FLOWER_TYPES.length;i++){
+      cum += FLOWER_TYPES[i].weight;
+      if(roll <= cum) return FLOWER_TYPES[i];
+    }
+    return FLOWER_TYPES[0];
+  }
+
+  function renderBouquet(){
+    var d = new Date();
+    var seed = seedFromDate(d);
+    var rng = mulberry32(seed);
+    var type = pickFlowerType(rng);
+
+    var stems = [
+      {x:60,cy:150,by:200},
+      {x:100,cy:130,by:206},
+      {x:140,cy:150,by:200},
+      {x:80,cy:165,by:203},
+      {x:120,cy:165,by:203}
+    ];
+    var svg = "";
+    // wrap paper
+    svg += '<path d="M40 205 L160 205 L120 155 L80 155 Z" fill="var(--surface-2)" stroke="var(--border)"/>';
+    // ribbon
+    svg += '<rect x="90" y="178" width="20" height="30" rx="4" fill="'+(type.name==="Peonies"?"#D6577A":"var(--accent)")+'"/>';
+    // stems
+    stems.forEach(function(s){
+      svg += '<line x1="'+s.x+'" y1="'+s.cy+'" x2="100" y2="'+s.by+'" stroke="#6B8F5A" stroke-width="3"/>';
+    });
+    // leaves
+    svg += '<path d="M75 175 Q60 165 65 150 Q85 160 75 175 Z" fill="#7FA86A"/>';
+    svg += '<path d="M125 175 Q140 165 135 150 Q115 160 125 175 Z" fill="#7FA86A"/>';
+    // blooms
+    stems.forEach(function(s){ svg += type.draw(s.x, s.cy, 22, rng); });
+
+    $("#bouquet-svg").innerHTML = svg;
+    $("#bouquet-name").textContent = type.name + " for you";
+    $("#bouquet-line").textContent = "A fresh bunch, just for today (" +
+      d.toLocaleDateString(undefined,{month:"long", day:"numeric"}) + "). Come back tomorrow for another.";
+  }
+
+  /* ============================================================
+     TOGETHER COUNTER
+     ============================================================ */
+  function diffParts(start, end){
+    if(end < start) return {y:0,mo:0,d:0,h:0,mi:0,s:0};
+    var y = end.getFullYear() - start.getFullYear();
+    var mo = end.getMonth() - start.getMonth();
+    var d = end.getDate() - start.getDate();
+    var h = end.getHours() - start.getHours();
+    var mi = end.getMinutes() - start.getMinutes();
+    var s = end.getSeconds() - start.getSeconds();
+    if(s < 0){ s += 60; mi--; }
+    if(mi < 0){ mi += 60; h--; }
+    if(h < 0){ h += 24; d--; }
+    if(d < 0){
+      var prevMonthDays = new Date(end.getFullYear(), end.getMonth(), 0).getDate();
+      d += prevMonthDays; mo--;
+    }
+    if(mo < 0){ mo += 12; y--; }
+    return {y:y, mo:mo, d:d, h:h, mi:mi, s:s};
+  }
+
+  function startTogetherClock(){
+    function tick(){
+      var p = diffParts(TOGETHER_SINCE, new Date());
+      var stats = [
+        {n:p.y, l:"Years"},
+        {n:p.mo, l:"Months"},
+        {n:p.d, l:"Days"},
+        {n:pad2(p.h)+":"+pad2(p.mi)+":"+pad2(p.s), l:"Hrs : Min : Sec"}
+      ];
+      $("#together-stats").innerHTML = stats.map(function(s){
+        return '<div class="stat-pill"><div class="n num">'+s.n+'</div><div class="l">'+s.l+'</div></div>';
+      }).join("");
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  /* ============================================================
+     SHARED FIRESTORE SETUP (used by Meet-Again + Photos)
+     ============================================================ */
+  var db = null;
+  var storage = null;
+  var firebaseReady = false;
+  function initFirebaseOnce(){
+    if(db) return true;
+    if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)) return false;
+    if(!window.firebase) return false;
+    try {
+      if(!firebase.apps.length){ firebase.initializeApp(FIREBASE_CONFIG); }
+      db = firebase.firestore();
+      try { storage = firebase.storage(); } catch(e){ storage = null; } // videos just won't upload if Storage isn't set up
+      firebaseReady = true;
+      return true;
+    } catch(err){
+      return false;
+    }
+  }
+
+  /* ============================================================
+     MEET-AGAIN COUNTDOWN
+     Saves automatically as you type (no button needed). Display is
+     kept simple — just the number of days left. The date itself is
+     also dropped onto the Calendar tab automatically, so it isn't
+     lost even though it's not spelled out here. Once the date
+     arrives, it's remembered internally (and kept marked on the
+     calendar) as the day you met — synced across both of your
+     devices when Firebase is set up, or remembered on this device
+     only otherwise.
+     ============================================================ */
+  var MEET_NEXT_KEY = "fmp_meet_next";
+  var MEET_LAST_KEY = "fmp_meet_last";
+  var meetState = { nextDate: null, lastMetDate: null };
+  var meetSaveTimer = null;
+
+  function updateMeetCalendarMarks(){
+    dynamicSpecialDates = {};
+    if(meetState.nextDate){
+      dynamicSpecialDates[meetState.nextDate.slice(0,10)] = "💌 See you";
+    } else if(meetState.lastMetDate){
+      dynamicSpecialDates[meetState.lastMetDate.slice(0,10)] = "💗 Day we met";
+    }
+    renderCalendar();
+  }
+
+  function setupMeetAgain(){
+    var input = $("#meet-date");
+    var saveBtn = $("#meet-save");
+    var el = $("#meet-countdown");
+    var statsEl = $("#meet-stats");
+
+    // migrate the old single-value key from before this feature existed
+    var legacy = safeGet("fmp_meet_again");
+    if(legacy && !safeGet(MEET_NEXT_KEY)){ safeSet(MEET_NEXT_KEY, legacy); }
+
+    function persistMeetState(){
+      if(firebaseReady && db){
+        db.collection("meta").doc("meetAgain").set({
+          nextDate: meetState.nextDate,
+          lastMetDate: meetState.lastMetDate
+        }, { merge: true }).catch(function(){});
+      } else {
+        safeSet(MEET_NEXT_KEY, meetState.nextDate || "");
+        safeSet(MEET_LAST_KEY, meetState.lastMetDate || "");
+      }
+    }
+
+    function syncInputFromState(){
+      if(document.activeElement === input) return; // don't clobber active typing
+      input.value = meetState.nextDate || "";
+    }
+
+    function renderMeetCountdown(){
+      if(meetState.nextDate){
+        var target = new Date(meetState.nextDate);
+        var now = new Date();
+        var ms = target - now;
+        if(ms > 0){
+          var d = Math.floor(ms/86400000);
+          if(d > 0){
+            el.innerHTML = '<span class="num">'+d+'</span> day'+(d===1?"":"s")+' until I see you again 💗';
+          } else {
+            el.innerHTML = "Today's the day — I get to see you soon 💗";
+          }
+          // live ticking countdown underneath — same style as the "Us, so far" clock
+          var p = diffParts(now, target);
+          var stats = [
+            {n:p.y, l:"Years"},
+            {n:p.mo, l:"Months"},
+            {n:p.d, l:"Days"},
+            {n:pad2(p.h)+":"+pad2(p.mi)+":"+pad2(p.s), l:"Hrs : Min : Sec"}
+          ];
+          statsEl.innerHTML = stats.map(function(s){
+            return '<div class="stat-pill"><div class="n num">'+s.n+'</div><div class="l">'+s.l+'</div></div>';
+          }).join("");
+        } else {
+          // the date has arrived/passed — remember it as the day you met
+          // (stays marked on the calendar) and clear the field so a new
+          // date can be set for next time
+          meetState.lastMetDate = meetState.nextDate;
+          meetState.nextDate = null;
+          persistMeetState();
+          syncInputFromState();
+          updateMeetCalendarMarks();
+          renderMeetCountdown();
+          return;
+        }
+      } else {
+        el.textContent = "Tell me when we see each other next 💌";
+        statsEl.innerHTML = "";
+      }
+    }
+
+    function saveFromInput(){
+      var v = input.value;
+      if(!v) return;
+      meetState.nextDate = v;
+      persistMeetState();
+      updateMeetCalendarMarks();
+      renderMeetCountdown();
+    }
+
+    input.addEventListener("change", function(){
+      clearTimeout(meetSaveTimer);
+      meetSaveTimer = setTimeout(saveFromInput, 250);
+    });
+    saveBtn.addEventListener("click", saveFromInput);
+
+    if(initFirebaseOnce()){
+      db.collection("meta").doc("meetAgain").onSnapshot(function(doc){
+        var d = doc.exists ? doc.data() : {};
+        meetState.nextDate = d.nextDate || null;
+        meetState.lastMetDate = d.lastMetDate || null;
+        syncInputFromState();
+        updateMeetCalendarMarks();
+        renderMeetCountdown();
+      }, function(){ /* fall back to whatever's already shown */ });
+    } else {
+      meetState.nextDate = safeGet(MEET_NEXT_KEY) || null;
+      meetState.lastMetDate = safeGet(MEET_LAST_KEY) || null;
+      syncInputFromState();
+      updateMeetCalendarMarks();
+    }
+
+    renderMeetCountdown();
+    setInterval(renderMeetCountdown, 1000);
+  }
+
+  /* ============================================================
+     TIME APART (manual — separate from the meet-again countdown)
+     You add the last day you were physically together each time you
+     part ways (not just one day, since visits span several days),
+     and update it again whenever you agree on your next visit. Saves
+     automatically, synced the same way as everything else above.
+     ============================================================ */
+  var APART_KEY = "fmp_apart_since";
+  var apartState = { lastTogether: null };
+  var apartSaveTimer = null;
+
+  function setupTimeApart(){
+    var input = $("#apart-date");
+    var saveBtn = $("#apart-save");
+    var el = $("#apart-countdown");
+    var statsEl = $("#apart-stats");
+
+    function persistApartState(){
+      if(firebaseReady && db){
+        db.collection("meta").doc("apart").set({
+          lastTogether: apartState.lastTogether
+        }, { merge: true }).catch(function(){});
+      } else {
+        safeSet(APART_KEY, apartState.lastTogether || "");
+      }
+    }
+
+    function syncInputFromState(){
+      if(document.activeElement === input) return; // don't clobber active typing
+      input.value = apartState.lastTogether || "";
+    }
+
+    function renderApartCountdown(){
+      if(!apartState.lastTogether){
+        el.textContent = "Add the last day we were together to start tracking 💭";
+        statsEl.innerHTML = "";
+        return;
+      }
+      var parts = apartState.lastTogether.split("-").map(Number);
+      var last = new Date(parts[0], parts[1]-1, parts[2]);
+      var today = new Date();
+      var todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      var days = Math.round((todayMid - last) / 86400000);
+      if(days <= 0){
+        el.innerHTML = "We were together today 🥰";
+      } else {
+        el.innerHTML = "It's been <span class=\"num\">"+days+"</span> day"+(days===1?"":"s")+" since we were last together 💭";
+      }
+
+      // live ticking timer underneath — same style as the "Us, so far" clock
+      var p = diffParts(last, new Date());
+      var stats = [
+        {n:p.y, l:"Years"},
+        {n:p.mo, l:"Months"},
+        {n:p.d, l:"Days"},
+        {n:pad2(p.h)+":"+pad2(p.mi)+":"+pad2(p.s), l:"Hrs : Min : Sec"}
+      ];
+      statsEl.innerHTML = stats.map(function(s){
+        return '<div class="stat-pill"><div class="n num">'+s.n+'</div><div class="l">'+s.l+'</div></div>';
+      }).join("");
+    }
+
+    function saveFromInput(){
+      var v = input.value;
+      if(!v) return;
+      apartState.lastTogether = v;
+      persistApartState();
+      renderApartCountdown();
+    }
+
+    input.addEventListener("change", function(){
+      clearTimeout(apartSaveTimer);
+      apartSaveTimer = setTimeout(saveFromInput, 250);
+    });
+    saveBtn.addEventListener("click", saveFromInput);
+
+    if(initFirebaseOnce()){
+      db.collection("meta").doc("apart").onSnapshot(function(doc){
+        var d = doc.exists ? doc.data() : {};
+        apartState.lastTogether = d.lastTogether || null;
+        syncInputFromState();
+        renderApartCountdown();
+      }, function(){ /* fall back to whatever's already shown */ });
+    } else {
+      apartState.lastTogether = safeGet(APART_KEY) || null;
+      syncInputFromState();
+    }
+
+    renderApartCountdown();
+    setInterval(renderApartCountdown, 1000);
+  }
+
+  /* ============================================================
+     BEAUTIFUL MEMORIES (shared photos + videos, synced live via
+     Firebase Firestore; videos live in Firebase Storage since
+     they're too big for a Firestore field)
+     ============================================================ */
+  var WHOAMI_KEY = "fmp_whoami";
+  var MAX_FIELD_BYTES = 900000; // stay safely under Firestore's ~1MiB field cap
+  var photoDb = null;
+  var photoUnsub = null;
+  var photosCache = [];
+  var BUBBLE_GRADIENTS = [
+    ["#F3AFC2","#D6577A"], ["#F6D28A","#E8974B"], ["#B7D8A8","#6B8F5A"],
+    ["#A9C6E8","#5C86B8"], ["#E3B7EA","#9C5BC2"], ["#F0A6A6","#C24444"]
+  ];
+  function decorBubblesHtml(){
+    return BUBBLE_GRADIENTS.map(function(g, i){
+      var dur = (5 + (i%4)).toFixed(1);
+      var delay = ((i%6)*0.35).toFixed(2);
+      return '<div class="photo-card photo-placeholder" style="background:linear-gradient(160deg,'+g[0]+','+g[1]+');animation-duration:'+dur+'s;animation-delay:'+delay+'s;"></div>';
+    }).join("");
+  }
+
+  // ---- picture-viewer state: which memory is open, and slideshow mode ----
+  var modalIndex = -1;
+  var slideshowOn = false;
+  var slideshowTimer = null;
+  var SLIDESHOW_IMAGE_MS = 4000;
+
+  // Starts the slideshow at a random memory — used both by the button and
+  // by opening the Memories tab itself. Does nothing if a slideshow is
+  // already running, or there's nothing to show yet.
+  function startSlideshow(){
+    if(slideshowOn) return;
+    if(!photosCache.length) return;
+    slideshowOn = true;
+    $("#slideshow-btn").textContent = "⏸ Stop Slideshow";
+    openModalAt(Math.floor(Math.random() * photosCache.length));
+  }
+
+  function initPhotoSync(){
+    var whoSel = $("#photo-whoami");
+    var names = ["Nosa", NICKNAMES[0] || "Her"];
+    whoSel.innerHTML = names.map(function(n){
+      return '<option value="'+n+'">Adding as: '+n+'</option>';
+    }).join("");
+    var savedWho = safeGet(WHOAMI_KEY);
+    if(savedWho && names.indexOf(savedWho) !== -1){ whoSel.value = savedWho; }
+    safeSet(WHOAMI_KEY, whoSel.value);
+    whoSel.addEventListener("change", function(){ safeSet(WHOAMI_KEY, whoSel.value); });
+
+    $("#photo-input").addEventListener("change", function(e){
+      var files = Array.prototype.slice.call(e.target.files || []);
+      e.target.value = "";
+      if(files.length) handleNewPhotos(files, whoSel.value);
+    });
+
+    $("#slideshow-btn").addEventListener("click", function(){
+      if(slideshowOn){ closeModal(); return; }
+      startSlideshow();
+    });
+
+    $("#modal-prev").addEventListener("click", showPrevMemory);
+    $("#modal-next").addEventListener("click", showNextMemory);
+    $("#modal-close").addEventListener("click", closeModal);
+    $("#photo-modal").addEventListener("click", function(e){
+      if(e.target.id === "photo-modal") closeModal();
+    });
+    $("#modal-delete").addEventListener("click", function(){
+      var id = $("#photo-modal").dataset.photoId;
+      if(id) deletePhoto(id);
+      closeModal();
+    });
+
+    if(!initFirebaseOnce()){
+      if(!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey)){
+        renderPhotoMessage("Memory sharing isn't set up yet. Ask Nosa to finish connecting it — once he does, you'll both be able to add memories here from any device. 💗");
+      } else {
+        renderPhotoMessage("Memory sharing couldn't start — check your internet connection and reload the page.");
+      }
+      return;
+    }
+    photoDb = db;
+    subscribeToPhotos();
+  }
+
+  function subscribeToPhotos(){
+    $("#photo-status").textContent = "Loading memories…";
+    if(photoUnsub) photoUnsub();
+    photoUnsub = photoDb.collection("photos").orderBy("ts","desc").onSnapshot(function(snap){
+      photosCache = [];
+      snap.forEach(function(doc){
+        var d = doc.data();
+        photosCache.push({
+          id: doc.id,
+          type: d.type === "video" ? "video" : "image",
+          img: d.img,
+          videoUrl: d.videoUrl,
+          storagePath: d.storagePath,
+          addedBy: d.addedBy,
+          ts: d.ts
+        });
+      });
+      renderPhotoGallery();
+      maybeAutoBuildPuzzle(); // in case the puzzle tab was waiting for a first photo
+      // keep an open picture viewer in sync if a memory was added/removed elsewhere
+      if($("#photo-modal").classList.contains("show")){
+        if(!photosCache.length){ closeModal(); }
+        else { renderModalItem(); }
+      }
+    }, function(err){
+      renderPhotoMessage("Couldn't load memories (" + (err && err.message ? err.message : "unknown error") + ").");
+    });
+  }
+
+  function renderPhotoMessage(msg){
+    $("#photo-status").textContent = "";
+    $("#photo-grid").innerHTML = '<div class="photo-empty">'+msg+'</div>';
+  }
+
+  function renderPhotoGallery(){
+    $("#photo-status").textContent = photosCache.length ?
+      (photosCache.length + " memor" + (photosCache.length===1?"y":"ies")) : "";
+    if(!photosCache.length){
+      $("#photo-grid").innerHTML = decorBubblesHtml() +
+        '<div class="photo-empty">No memories yet — tap "+ Add Memories" to start filling this up. 💗</div>';
+      return;
+    }
+    $("#photo-grid").innerHTML = photosCache.map(function(p, i){
+      var dur = (5 + (i%4)).toFixed(1);
+      var delay = ((i%6)*0.35).toFixed(2);
+      var mediaHtml = p.type === "video" ?
+        '<video src="'+(p.videoUrl||"")+'" muted playsinline preload="metadata"></video><span class="play-badge">▶</span>' :
+        '<img src="'+p.img+'" loading="lazy" alt="">';
+      return '<button class="photo-card" type="button" data-id="'+p.id+'" style="animation-duration:'+dur+'s;animation-delay:'+delay+'s;">' +
+        mediaHtml + (p.addedBy ? '<span class="by">'+p.addedBy+'</span>' : '') + '</button>';
+    }).join("");
+    $all(".photo-card").forEach(function(card){
+      card.addEventListener("click", function(){
+        var idx = photosCache.findIndex(function(p){ return p.id === card.dataset.id; });
+        if(idx !== -1) openModalAt(idx);
+      });
+    });
+  }
+
+  // ---- picture viewer: open/close, next/previous, optional slideshow ----
+  function openModalAt(index){
+    if(index < 0 || index >= photosCache.length) return;
+    modalIndex = index;
+    $("#photo-modal").classList.add("show");
+    renderModalItem();
+  }
+
+  // A few different looks for moving between memories — picked at random
+  // each time, so the slideshow doesn't feel repetitive. "heart" uses a
+  // heart-shaped mask that opens/closes around the photo; the others are
+  // simpler fades/zooms for variety.
+  var TRANSITION_STYLES = ["heart", "heart", "fade", "zoom"]; // heart shows up a bit more often
+  var modalHasContent = false; // false until the very first photo has been painted
+
+  function prefersReducedMotion(){
+    try { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    catch(e){ return false; }
+  }
+
+  function pickTransitionStyle(){
+    return TRANSITION_STYLES[Math.floor(Math.random() * TRANSITION_STYLES.length)];
+  }
+
+  function getVisibleModalEl(){
+    var vidEl = $("#modal-video");
+    return vidEl.style.display === "block" ? vidEl : $("#modal-img");
+  }
+
+  // Plays the "in" animation on whichever element now holds the new photo.
+  function playEnterTransition(el, style){
+    el.classList.remove("enter-heart","enter-fade","enter-zoom","exit-heart","exit-fade","exit-zoom");
+    if(prefersReducedMotion()) return;
+    void el.offsetWidth; // restart the animation even if the class name repeats
+    el.classList.add("enter-" + style);
+  }
+
+  // Plays the "out" animation on the currently-visible element, then calls
+  // back once it's done (or immediately, if the person prefers less motion).
+  function playExitTransition(el, style, cb){
+    if(prefersReducedMotion()){ cb(); return; }
+    var done = false;
+    function finish(){
+      if(done) return;
+      done = true;
+      el.removeEventListener("animationend", finish);
+      cb();
+    }
+    el.classList.remove("enter-heart","enter-fade","enter-zoom");
+    void el.offsetWidth;
+    el.classList.add("exit-" + style);
+    el.addEventListener("animationend", finish);
+    setTimeout(finish, 550); // safety net in case animationend doesn't fire
+  }
+
+  // Actually swaps in the new photo/video and plays its entrance.
+  function paintModalItem(item, style){
+    var imgEl = $("#modal-img"), vidEl = $("#modal-video");
+    vidEl.onended = null;
+    if(item.type === "video"){
+      imgEl.style.display = "none";
+      vidEl.style.display = "block";
+      if(vidEl.src !== item.videoUrl) vidEl.src = item.videoUrl || "";
+      vidEl.muted = slideshowOn;
+      if(slideshowOn){ vidEl.currentTime = 0; vidEl.play().catch(function(){}); }
+      playEnterTransition(vidEl, style);
+    } else {
+      vidEl.pause();
+      vidEl.removeAttribute("src");
+      vidEl.style.display = "none";
+      imgEl.style.display = "block";
+      imgEl.src = item.img || "";
+      playEnterTransition(imgEl, style);
+    }
+    $("#modal-meta").textContent = item.addedBy ? ("Added by " + item.addedBy) : "";
+    $("#photo-modal").dataset.photoId = item.id;
+    var multi = photosCache.length > 1;
+    $("#modal-prev").style.display = multi ? "flex" : "none";
+    $("#modal-next").style.display = multi ? "flex" : "none";
+    scheduleSlideshowAdvance();
+  }
+
+  function renderModalItem(){
+    if(modalIndex < 0 || modalIndex >= photosCache.length) modalIndex = 0;
+    var item = photosCache[modalIndex];
+    if(!item) return;
+    var style = pickTransitionStyle();
+
+    if(!modalHasContent){
+      // first photo since the viewer opened — nothing to fade out yet
+      modalHasContent = true;
+      paintModalItem(item, style);
+      return;
+    }
+
+    var activeEl = getVisibleModalEl();
+    playExitTransition(activeEl, style, function(){
+      paintModalItem(item, style);
+    });
+  }
+
+  // Manual Prev/Next: deliberate, sequential browsing through the memories
+  // in order (unaffected by the slideshow's random order).
+  function showNextMemory(){
+    if(!photosCache.length) return;
+    modalIndex = (modalIndex + 1) % photosCache.length;
+    renderModalItem();
+  }
+  function showPrevMemory(){
+    if(!photosCache.length) return;
+    modalIndex = (modalIndex - 1 + photosCache.length) % photosCache.length;
+    renderModalItem();
+  }
+
+  // Picks a random memory to jump to that isn't the one currently showing
+  // (so the slideshow never appears to "repeat" the same photo twice in a row).
+  function pickRandomIndex(excludeIndex){
+    if(photosCache.length <= 1) return 0;
+    var idx;
+    do { idx = Math.floor(Math.random() * photosCache.length); } while(idx === excludeIndex);
+    return idx;
+  }
+
+  // Auto-advance used only while the slideshow is running — jumps to a
+  // random memory instead of the next one in order.
+  function slideshowAdvance(){
+    if(!slideshowOn || !photosCache.length) return;
+    modalIndex = pickRandomIndex(modalIndex);
+    renderModalItem();
+  }
+
+  function scheduleSlideshowAdvance(){
+    clearTimeout(slideshowTimer);
+    slideshowTimer = null;
+    if(!slideshowOn) return;
+    var item = photosCache[modalIndex];
+    if(!item) return;
+    if(item.type === "video"){
+      $("#modal-video").onended = function(){ if(slideshowOn) slideshowAdvance(); };
+    } else {
+      slideshowTimer = setTimeout(function(){ if(slideshowOn) slideshowAdvance(); }, SLIDESHOW_IMAGE_MS);
+    }
+  }
+
+  function closeModal(){
+    slideshowOn = false;
+    clearTimeout(slideshowTimer);
+    slideshowTimer = null;
+    modalHasContent = false; // next open should just fade in, not fade out first
+    $("#slideshow-btn").textContent = "▶ Slideshow";
+    var vidEl = $("#modal-video");
+    vidEl.onended = null;
+    vidEl.pause();
+    $("#photo-modal").classList.remove("show");
+  }
+
+  function deletePhoto(id){
+    if(!photoDb || !id) return;
+    var item = photosCache.filter(function(p){ return p.id === id; })[0];
+    photoDb.collection("photos").doc(id).delete().catch(function(){});
+    if(item && item.type === "video" && item.storagePath && storage){
+      storage.ref(item.storagePath).delete().catch(function(){});
+    }
+  }
+
+  function handleNewPhotos(files, who){
+    if(!photoDb){ return; }
+    $("#photo-status").textContent = "Adding " + files.length + " memor" + (files.length===1?"y":"ies") + "…";
+    var remaining = files.length, hadError = false;
+    function oneDone(err){
+      remaining--;
+      if(err) hadError = true;
+      if(remaining === 0){
+        $("#photo-status").textContent = hadError ?
+          "Added what we could — one or two didn't make it, try again with those." : "";
+      }
+    }
+    files.forEach(function(file){
+      var isVideo = file.type && file.type.indexOf("video/") === 0;
+      if(isVideo){
+        uploadVideoFile(file, who, oneDone);
+      } else {
+        compressImageFile(file, function(dataUrl, err){
+          if(err || !dataUrl){
+            oneDone(true);
+          } else {
+            photoDb.collection("photos").add({
+              type: "image",
+              img: dataUrl,
+              addedBy: who || "",
+              ts: Date.now()
+            }).then(function(){ oneDone(false); }).catch(function(){ oneDone(true); });
+          }
+        });
+      }
+    });
+  }
+
+  // Uploads a video file straight to Firebase Storage (Firestore fields are
+  // far too small for video), then saves a Firestore doc pointing at it.
+  function uploadVideoFile(file, who, cb){
+    if(!storage){ cb(true); return; }
+    var safeName = (file.name || "video").replace(/[^a-zA-Z0-9.]/g, "_");
+    var path = "memories/" + Date.now() + "_" + Math.random().toString(36).slice(2) + "_" + safeName;
+    var ref = storage.ref(path);
+    ref.put(file).then(function(){
+      return ref.getDownloadURL();
+    }).then(function(url){
+      return photoDb.collection("photos").add({
+        type: "video",
+        videoUrl: url,
+        storagePath: path,
+        addedBy: who || "",
+        ts: Date.now()
+      });
+    }).then(function(){ cb(false); }).catch(function(){ cb(true); });
+  }
+
+  // Resize + compress an image file on a <canvas> and hand back a JPEG
+  // data URL small enough to store directly as a Firestore field.
+  function compressImageFile(file, cb){
+    var reader = new FileReader();
+    reader.onerror = function(){ cb(null, true); };
+    reader.onload = function(){
+      var img = new Image();
+      img.onerror = function(){ cb(null, true); };
+      img.onload = function(){
+        var maxDim = 1000;
+        var w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w >= h){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else { w = Math.round(w*maxDim/h); h = maxDim; }
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        var quality = 0.75;
+        var dataUrl = canvas.toDataURL("image/jpeg", quality);
+        var attempts = 0;
+        while(dataUrl.length > MAX_FIELD_BYTES && attempts < 8){
+          quality -= 0.12;
+          if(quality < 0.35){
+            w = Math.round(w*0.8); h = Math.round(h*0.8);
+            canvas.width = w; canvas.height = h;
+            ctx.drawImage(img, 0, 0, w, h);
+            quality = 0.6;
+          }
+          dataUrl = canvas.toDataURL("image/jpeg", Math.max(quality,0.35));
+          attempts++;
+        }
+        cb(dataUrl.length <= MAX_FIELD_BYTES ? dataUrl : null, dataUrl.length > MAX_FIELD_BYTES);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ============================================================
+     JIGSAW PUZZLE
+     Cuts one of the shared photos into 12 pieces to drag back together,
+     instead of placeholder art. Picks a random uploaded photo the first
+     time one is available (and whenever "New Photo" is tapped). Finishing
+     it plays a little celebration -- gold star, an encouraging line, and
+     hearts flying up the screen.
+     ============================================================ */
+  var PUZZLE_COLS = 4, PUZZLE_ROWS = 3; // 12 pieces
+  var PUZZLE_BOARD_W = 480, PUZZLE_BOARD_H = 390;
+  var puzzleReady = false;
+  var puzzleBuildFn = null;
+  var lastPuzzlePhotoId = null;
+
+  var ENCOURAGEMENT_LINES = [
+    "Look at you, putting the pieces together like you do with everything else.",
+    "Patient, determined, and a little bit magic -- that's you.",
+    "You made something whole again. That's basically your superpower.",
+    "Every piece found its place, just like every version of you fits perfectly with every version of me.",
+    "That's my girl -- puzzle champion and heart-keeper."
+  ];
+
+  // Scales+crops an image to fill a W x H box (like CSS object-fit: cover),
+  // so any photo (portrait or landscape) fits the puzzle board cleanly.
+  function drawCover(ctx, img, W, H){
+    var ir = img.width / img.height, br = W / H;
+    var sx, sy, sw, sh;
+    if(ir > br){
+      sh = img.height; sw = sh * br; sx = (img.width - sw) / 2; sy = 0;
+    } else {
+      sw = img.width; sh = sw / br; sx = 0; sy = (img.height - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+  }
+
+  function pickRandomPuzzlePhoto(imgs){
+    if(imgs.length <= 1) return imgs[0];
+    var pick;
+    do { pick = imgs[Math.floor(Math.random() * imgs.length)]; } while(pick.id === lastPuzzlePhotoId);
+    return pick;
+  }
+
+  function celebratePuzzleWin(){
+    var overlay = $("#puzzle-celebrate");
+    $("#celebrate-line").textContent = pickDeterministic(ENCOURAGEMENT_LINES, Date.now());
+    overlay.hidden = false;
+    overlay.classList.add("show");
+    spawnFlyingHearts();
+  }
+
+  function spawnFlyingHearts(){
+    var wrap = $("#celebrate-hearts");
+    wrap.innerHTML = "";
+    if(prefersReducedMotion()) return;
+    var icons = ["💗","💛","✨","💖"];
+    for(var i=0; i<28; i++){
+      var span = document.createElement("span");
+      span.className = "flying-heart";
+      span.textContent = icons[Math.floor(Math.random()*icons.length)];
+      span.style.left = (Math.random()*100)+"%";
+      span.style.fontSize = (1.1 + Math.random()*1.4)+"rem";
+      span.style.animationDuration = (2.2 + Math.random()*1.8)+"s";
+      span.style.animationDelay = (Math.random()*0.7)+"s";
+      wrap.appendChild(span);
+    }
+  }
+
+  function setupPuzzle(){
+    var boardEl = $("#puzzle-board");
+    var trayEl = $("#puzzle-tray");
+    var winEl = $("#puzzle-win");
+    var shuffleBtn = $("#puzzle-shuffle");
+    var newPhotoBtn = $("#puzzle-newphoto");
+    var celebrateOverlay = $("#puzzle-celebrate");
+    var celebrateClose = $("#celebrate-close");
+
+    var scatterCurrent = null;
+
+    celebrateClose.addEventListener("click", function(){
+      celebrateOverlay.classList.remove("show");
+      celebrateOverlay.hidden = true;
+      $("#celebrate-hearts").innerHTML = "";
+    });
+
+    shuffleBtn.addEventListener("click", function(){
+      if(scatterCurrent) scatterCurrent();
+    });
+
+    function showNoPhotoMessage(){
+      winEl.textContent = "";
+      boardEl.innerHTML = "";
+      trayEl.innerHTML = '<p class="photo-empty">Add a photo in the Memories tab first, then come back to turn it into a puzzle! 💗</p>';
+    }
+
+    newPhotoBtn.addEventListener("click", function(){
+      var imgs = photosCache.filter(function(p){ return p.type === "image" && p.img; });
+      if(!imgs.length){ showNoPhotoMessage(); return; }
+      buildPuzzleFromPhoto(pickRandomPuzzlePhoto(imgs));
+    });
+
+    function buildPuzzleFromPhoto(photoItem){
+      lastPuzzlePhotoId = photoItem.id;
+      var COLS = PUZZLE_COLS, ROWS = PUZZLE_ROWS;
+      var BOARD_W = PUZZLE_BOARD_W, BOARD_H = PUZZLE_BOARD_H;
+      var pieceW = BOARD_W/COLS, pieceH = BOARD_H/ROWS;
+      var pad = Math.min(pieceW,pieceH)*0.28;
+
+      winEl.textContent = "Loading your puzzle…";
+      boardEl.innerHTML = "";
+      trayEl.innerHTML = "";
+
+      var img = new Image();
+      img.onload = function(){
+        winEl.textContent = "";
+
+        var src = document.createElement("canvas");
+        src.width = BOARD_W; src.height = BOARD_H;
+        var sctx = src.getContext("2d");
+        drawCover(sctx, img, BOARD_W, BOARD_H);
+
+        var rng = mulberry32(Math.floor(Math.random()*1e9));
+
+        var vEdge = []; // vEdge[row][col] : edge to the right of (row,col), col 0..COLS-2
+        for(var r=0;r<ROWS;r++){ vEdge.push([]); for(var c=0;c<COLS-1;c++){ vEdge[r].push(rng()<0.5?1:-1); } }
+        var hEdge = []; // hEdge[row][col]: edge below (row,col), row 0..ROWS-2
+        for(var r2=0;r2<ROWS-1;r2++){ hEdge.push([]); for(var c2=0;c2<COLS;c2++){ hEdge[r2].push(rng()<0.5?1:-1); } }
+
+        function bumpSeg(path, x1,y1,x2,y2,sign){
+          if(sign === 0){ path.push("L "+x2+" "+y2); return; }
+          var dx = x2-x1, dy = y2-y1;
+          var len = Math.sqrt(dx*dx+dy*dy);
+          var ux = dx/len, uy = dy/len;
+          var nx = -uy, ny = ux;
+          var p1x = x1+ux*len*0.35, p1y = y1+uy*len*0.35;
+          var p2x = x1+ux*len*0.65, p2y = y1+uy*len*0.65;
+          var bulge = sign * pad * 0.9;
+          var midx = (p1x+p2x)/2 + nx*bulge, midy = (p1y+p2y)/2 + ny*bulge;
+          // approximate a smooth bump with a quadratic through the bulge point using two Q segments
+          path.push("L "+p1x+" "+p1y);
+          path.push("Q "+midx+" "+midy+" "+p2x+" "+p2y);
+          path.push("L "+x2+" "+y2);
+        }
+
+        function pieceEdges(r,c){
+          return {
+            top:    r===0 ? 0 : -hEdge[r-1][c],
+            right:  c===COLS-1 ? 0 : vEdge[r][c],
+            bottom: r===ROWS-1 ? 0 : hEdge[r][c],
+            left:   c===0 ? 0 : -vEdge[r][c-1]
+          };
+        }
+
+        function piecePathLocal(r,c){
+          var e = pieceEdges(r,c);
+          var x0 = pad, y0 = pad, x1 = pad+pieceW, y1 = pad+pieceH;
+          var path = ["M "+x0+" "+y0];
+          bumpSeg(path, x0,y0, x1,y0, e.top);
+          bumpSeg(path, x1,y0, x1,y1, e.right);
+          bumpSeg(path, x1,y1, x0,y1, e.bottom);
+          bumpSeg(path, x0,y1, x0,y0, e.left);
+          path.push("Z");
+          return path.join(" ");
+        }
+
+        var pieces = [];
+
+        for(var row=0; row<ROWS; row++){
+          for(var col=0; col<COLS; col++){
+            (function(row,col){
+              var canvasW = pieceW + pad*2, canvasH = pieceH + pad*2;
+              var pc = document.createElement("canvas");
+              pc.width = canvasW; pc.height = canvasH;
+              var pctx = pc.getContext("2d");
+              var pathStr = piecePathLocal(row,col);
+              var path2d = new Path2D(pathStr);
+              pctx.save();
+              pctx.clip(path2d);
+              pctx.drawImage(src, -(col*pieceW - pad), -(row*pieceH - pad));
+              pctx.restore();
+              pctx.save();
+              pctx.strokeStyle = "rgba(255,255,255,0.85)";
+              pctx.lineWidth = 2;
+              pctx.stroke(path2d);
+              pctx.restore();
+
+              var el = document.createElement("canvas");
+              el.width = canvasW; el.height = canvasH;
+              el.className = "piece";
+              el.getContext("2d").drawImage(pc,0,0);
+              el.style.width = (canvasW/BOARD_W*100)+"%";
+              el.style.height = (canvasH/BOARD_H*100)+"%";
+
+              var correctLeftPct = ((col*pieceW - pad)/BOARD_W)*100;
+              var correctTopPct = ((row*pieceH - pad)/BOARD_H)*100;
+
+              var piece = {
+                el: el,
+                correctLeftPct: correctLeftPct,
+                correctTopPct: correctTopPct,
+                placed: false
+              };
+              pieces.push(piece);
+              trayEl.appendChild(el);
+            })(row,col);
+          }
+        }
+
+        function scatterPieces(){
+          pieces.forEach(function(p){ p.placed = false; p.el.classList.remove("placed"); });
+          // lay tray pieces below the board in a simple wrapping flow (reliable on mobile)
+          trayEl.style.position = "relative";
+          trayEl.style.marginTop = "14px";
+          trayEl.style.display = "flex";
+          trayEl.style.flexWrap = "wrap";
+          trayEl.style.gap = "6px";
+          trayEl.style.minHeight = (pieceH*0.9)+"px";
+          pieces.forEach(function(p){
+            p.el.style.position = "static";
+            p.el.style.width = (pieceW*0.42)+"px";
+            p.el.style.height = (pieceH*0.42)+"px";
+          });
+          winEl.textContent = "";
+        }
+
+        var placedCount = 0;
+        function attachDrag(p){
+          var el = p.el;
+          var dragging = false, offsetX=0, offsetY=0;
+
+          el.addEventListener("pointerdown", function(e){
+            if(p.placed) return;
+            dragging = true;
+            el.setPointerCapture(e.pointerId);
+            var rect = el.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            el.style.position = "fixed";
+            el.style.zIndex = 100;
+            el.style.width = rect.width+"px";
+            el.style.height = rect.height+"px";
+            el.style.left = rect.left+"px";
+            el.style.top = rect.top+"px";
+          });
+          el.addEventListener("pointermove", function(e){
+            if(!dragging) return;
+            el.style.left = (e.clientX - offsetX)+"px";
+            el.style.top = (e.clientY - offsetY)+"px";
+          });
+          el.addEventListener("pointerup", function(e){
+            if(!dragging) return;
+            dragging = false;
+            var boardRect = boardEl.getBoundingClientRect();
+            var pieceRect = el.getBoundingClientRect();
+            var targetLeft = boardRect.left + (p.correctLeftPct/100)*boardRect.width;
+            var targetTop = boardRect.top + (p.correctTopPct/100)*boardRect.height;
+            var dx = pieceRect.left - targetLeft;
+            var dy = pieceRect.top - targetTop;
+            var dist = Math.sqrt(dx*dx+dy*dy);
+            if(dist < Math.max(boardRect.width,boardRect.height)*0.06){
+              el.style.position = "absolute";
+              el.style.left = p.correctLeftPct+"%";
+              el.style.top = p.correctTopPct+"%";
+              el.style.width = ((pieceW+pad*2)/BOARD_W*100)+"%";
+              el.style.height = ((pieceH+pad*2)/BOARD_H*100)+"%";
+              el.style.zIndex = 2;
+              boardEl.appendChild(el);
+              p.placed = true;
+              el.classList.add("placed");
+              placedCount++;
+              if(placedCount === pieces.length){
+                celebratePuzzleWin();
+              }
+            } else {
+              el.style.position = "static";
+              el.style.zIndex = "";
+            }
+          });
+        }
+
+        function resetAndScatter(){
+          pieces.forEach(function(p){ trayEl.appendChild(p.el); });
+          placedCount = 0;
+          scatterPieces();
+        }
+
+        pieces.forEach(attachDrag);
+        resetAndScatter();
+        scatterCurrent = resetAndScatter;
+      };
+      img.onerror = function(){
+        winEl.textContent = "Couldn't load that photo for the puzzle -- try Shuffle or New Photo again.";
+      };
+      img.src = photoItem.img;
+    }
+
+    puzzleBuildFn = buildPuzzleFromPhoto;
+
+    var imgs = photosCache.filter(function(p){ return p.type === "image" && p.img; });
+    if(imgs.length){
+      maybeAutoBuildPuzzle();
+    } else {
+      showNoPhotoMessage();
+    }
+  }
+
+  function maybeAutoBuildPuzzle(){
+    if(puzzleReady || !puzzleBuildFn) return;
+    var imgs = photosCache.filter(function(p){ return p.type === "image" && p.img; });
+    if(!imgs.length) return;
+    puzzleReady = true;
+    puzzleBuildFn(pickRandomPuzzlePhoto(imgs));
+  }
+
+  /* ============================================================
+     CALENDAR
+     ============================================================ */
+  var calView = { year: new Date().getFullYear(), month: new Date().getMonth() };
+  // Dates added automatically (not hand-edited in SPECIAL_DATES) — e.g. the
+  // upcoming/most-recent "meet again" date — keyed by 'YYYY-MM-DD'.
+  var dynamicSpecialDates = {};
+  function setupCalendar(){
+    $("#cal-prev").addEventListener("click", function(){
+      calView.month--; if(calView.month<0){calView.month=11; calView.year--;}
+      renderCalendar();
+    });
+    $("#cal-next").addEventListener("click", function(){
+      calView.month++; if(calView.month>11){calView.month=0; calView.year++;}
+      renderCalendar();
+    });
+    renderCalendar();
+  }
+  function renderCalendar(){
+    var y = calView.year, m = calView.month;
+    var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    $("#cal-title").textContent = monthNames[m]+" "+y;
+
+    var firstDay = new Date(y,m,1);
+    var startWeekday = (firstDay.getDay()+6)%7; // Mon=0
+    var daysInMonth = new Date(y,m+1,0).getDate();
+    var today = new Date();
+
+    var specialMap = {};
+    SPECIAL_DATES.forEach(function(sd){ specialMap[sd.date] = sd.label; });
+    Object.keys(dynamicSpecialDates).forEach(function(iso){ specialMap[iso] = dynamicSpecialDates[iso]; });
+
+    var dows = ["Mo","Tu","We","Th","Fr","Sa","Su"];
+    var html = dows.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join("");
+
+    for(var i=0;i<startWeekday;i++){ html += '<div class="cal-day empty"></div>'; }
+
+    for(var day=1; day<=daysInMonth; day++){
+      var classes = "cal-day";
+      var isToday = (y===today.getFullYear() && m===today.getMonth() && day===today.getDate());
+      if(isToday) classes += " today";
+      var iso = y+"-"+pad2(m+1)+"-"+pad2(day);
+      var label = "";
+      var isTogetherStart = (y===TOGETHER_SINCE.getFullYear() && m===TOGETHER_SINCE.getMonth() && day===TOGETHER_SINCE.getDate());
+      var isMonthiversary = (day === TOGETHER_SINCE.getDate()) &&
+        (new Date(y,m,day) >= new Date(TOGETHER_SINCE.getFullYear(),TOGETHER_SINCE.getMonth(),TOGETHER_SINCE.getDate()));
+
+      if(specialMap[iso]){
+        classes += " special";
+        label = specialMap[iso];
+      } else if(isTogetherStart){
+        classes += " special";
+        label = "💍 Day 1";
+      } else if(isMonthiversary){
+        classes += " special";
+        var yearsPassed = y - TOGETHER_SINCE.getFullYear();
+        label = (m===0 && yearsPassed>0) ? (yearsPassed+"yr anniv 💍") : "💗";
+      }
+      html += '<div class="'+classes+'" title="'+label+'">'+day+(label?'<span class="dot">'+label+'</span>':'')+'</div>';
+    }
+    $("#cal-grid").innerHTML = html;
+  }
+
+  /* ============================================================
+     COLORING PAGE
+     Built-in line-art pages, plus anything Nosa adds to
+     CUSTOM_COLORING_IMAGES below -- paste an image or data: URL there and
+     it shows up automatically in the daily pick, the Shuffle button, and
+     the Choose picker. Every page saves its own progress separately
+     (shared through Firebase once that's set up, kept on this device
+     otherwise), so a half-finished drawing is always right there again.
+     ============================================================ */
+  var COLOR_VECTOR_TEMPLATES = {
+    peony: function(ctx,w,h){
+      ctx.strokeStyle = "#333"; ctx.lineWidth = 3;
+      var cx=w/2, cy=h/2;
+      for(var ring=0; ring<3; ring++){
+        var count = 6+ring*2, rad = 40+ring*35;
+        for(var i=0;i<count;i++){
+          var a = i*(360/count)*Math.PI/180;
+          var x = cx+Math.cos(a)*rad, y = cy+Math.sin(a)*rad*0.9;
+          ctx.beginPath();
+          ctx.ellipse(x, y, 22, 34, a, 0, Math.PI*2);
+          ctx.stroke();
+        }
+      }
+      ctx.beginPath(); ctx.arc(cx,cy,26,0,Math.PI*2); ctx.stroke();
+      // stem
+      ctx.beginPath(); ctx.moveTo(cx,cy+150); ctx.lineTo(cx,h-10); ctx.stroke();
+    },
+    heart: function(ctx,w,h){
+      ctx.strokeStyle="#333"; ctx.lineWidth=3;
+      ctx.save(); ctx.translate(w/2,h/2-20); ctx.scale(6,6);
+      ctx.beginPath();
+      ctx.moveTo(0,10);
+      ctx.bezierCurveTo(-22,-10,-32,-30,-14,-34);
+      ctx.bezierCurveTo(0,-37,0,-24,0,-18);
+      ctx.bezierCurveTo(0,-24,0,-37,14,-34);
+      ctx.bezierCurveTo(32,-30,22,-10,0,10);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    },
+    us: function(ctx,w,h){
+      ctx.strokeStyle="#333"; ctx.lineWidth=3;
+      var baseY = h-40;
+      [w/2-55, w/2+55].forEach(function(cx){
+        ctx.beginPath(); ctx.arc(cx, baseY-160, 30, 0, Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.rect(cx-30, baseY-130, 60, 110); ctx.stroke();
+      });
+      ctx.beginPath();
+      ctx.moveTo(w/2-15, baseY-90);
+      ctx.lineTo(w/2+15, baseY-90);
+      ctx.stroke();
+      // small heart above
+      ctx.save(); ctx.translate(w/2, baseY-230); ctx.scale(2.6,2.6);
+      ctx.beginPath();
+      ctx.moveTo(0,10);
+      ctx.bezierCurveTo(-14,-6,-20,-19,-9,-21);
+      ctx.bezierCurveTo(0,-23,0,-15,0,-11);
+      ctx.bezierCurveTo(0,-15,0,-23,9,-21);
+      ctx.bezierCurveTo(20,-19,14,-6,0,10);
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  // Paste a link (or a data: URL) to a coloring-book-style outline image here
+  // and it becomes another page to color, right alongside the built-ins above.
+  // "name" is optional -- it's just the little label shown above the canvas.
+  var CUSTOM_COLORING_IMAGES = [
+    // { id: "butterfly1", name: "Butterfly", src: "https://example.com/butterfly-outline.png" }
+  ];
+
+  var COLOR_PALETTE = ["#D6577A","#F3AFC2","#C24BB0","#5C86B8","#F4B93C","#6B8F5A","#B98A3C","#3A2230","#FFFFFF"];
+
+  function buildColoringPages(){
+    var list = [
+      { id:"peony", name:"🌸 Peony", type:"vector" },
+      { id:"heart", name:"❤️ Heart", type:"vector" },
+      { id:"us", name:"🧑‍🤝‍🧑 Us", type:"vector" }
+    ];
+    CUSTOM_COLORING_IMAGES.forEach(function(item){
+      if(item && item.id && item.src){
+        list.push({ id:item.id, name:item.name || "🎨 Drawing", type:"image", src:item.src });
+      }
+    });
+    return list;
+  }
+
+  // Fits an image entirely inside a W x H box without cropping (like CSS
+  // object-fit: contain), so a line-art page never loses an edge the way a
+  // "cover" crop would.
+  function drawContain(ctx, img, W, H){
+    var ir = img.width / img.height, br = W / H;
+    var dw, dh, dx, dy;
+    if(ir > br){ dw = W; dh = W/ir; dx = 0; dy = (H-dh)/2; }
+    else { dh = H; dw = H*ir; dy = 0; dx = (W-dw)/2; }
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  function coloringLocalKey(id){ return "fmp_coloring_" + id; }
+
+  function saveColoringProgress(id, dataUrl){
+    if(firebaseReady && db){
+      db.collection("coloring").doc(id).set({ dataUrl: dataUrl, updatedAt: Date.now() }, { merge:true }).catch(function(){});
+    } else {
+      safeSet(coloringLocalKey(id), dataUrl);
+    }
+  }
+
+  function loadColoringProgress(id, cb){
+    if(firebaseReady && db){
+      db.collection("coloring").doc(id).get().then(function(doc){
+        cb(doc.exists ? (doc.data().dataUrl || null) : null);
+      }).catch(function(){ cb(safeGet(coloringLocalKey(id))); });
+    } else {
+      cb(safeGet(coloringLocalKey(id)));
+    }
+  }
+
+  function setupColoring(){
+    var lineCanvas = $("#lineart-canvas");
+    var paintCanvas = $("#paint-canvas");
+    var lctx = lineCanvas.getContext("2d");
+    var pctx = paintCanvas.getContext("2d");
+    var W = paintCanvas.width, H = paintCanvas.height;
+
+    var pages = buildColoringPages();
+    var currentColor = COLOR_PALETTE[0];
+    var currentBrush = 14;
+    var currentPage = null;
+    var dirty = false;
+    var autosaveTimer = null;
+    var loadToken = 0; // guards a slow async load from landing after a later page switch
+
+    var pageNameEl = $("#color-page-name");
+    var statusEl = $("#color-save-status");
+    var pickerOverlay = $("#coloring-picker");
+    var pickerGrid = $("#picker-grid");
+
+    function clearPaintCanvas(){
+      pctx.clearRect(0,0,W,H);
+      pctx.fillStyle = "#fff";
+      pctx.fillRect(0,0,W,H);
+    }
+
+    function showStatus(text){
+      statusEl.textContent = text;
+      if(text){ setTimeout(function(){ if(statusEl.textContent === text) statusEl.textContent = ""; }, 1800); }
+    }
+
+    function flushSave(){
+      if(!currentPage || !dirty) return;
+      saveColoringProgress(currentPage.id, paintCanvas.toDataURL("image/png"));
+      dirty = false;
+    }
+
+    function scheduleAutosave(){
+      dirty = true;
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(function(){ flushSave(); showStatus("Saved 💾"); }, 700);
+    }
+
+    function drawPageLineArt(page, cb){
+      lctx.clearRect(0,0,W,H);
+      if(page.type === "vector"){
+        COLOR_VECTOR_TEMPLATES[page.id](lctx, W, H);
+        if(cb) cb();
+      } else {
+        var img = new Image();
+        img.onload = function(){ drawContain(lctx, img, W, H); if(cb) cb(); };
+        img.onerror = function(){ if(cb) cb(); };
+        img.src = page.src;
+      }
+    }
+
+    function highlightPicker(){
+      $all(".picker-item", pickerGrid).forEach(function(el){
+        el.classList.toggle("active", !!currentPage && el.dataset.pageId === currentPage.id);
+      });
+    }
+
+    function switchToPage(page, opts){
+      opts = opts || {};
+      if(!opts.skipFlush) flushSave();
+      clearTimeout(autosaveTimer);
+      currentPage = page;
+      dirty = false;
+      pageNameEl.textContent = page.name || "";
+      clearPaintCanvas();
+      drawPageLineArt(page);
+      var myToken = ++loadToken;
+      loadColoringProgress(page.id, function(dataUrl){
+        if(myToken !== loadToken || !dataUrl) return; // a newer switch already happened, or nothing saved yet
+        var img = new Image();
+        img.onload = function(){ if(myToken === loadToken) pctx.drawImage(img, 0, 0, W, H); };
+        img.src = dataUrl;
+      });
+      highlightPicker();
+    }
+
+    function dailyDefaultPage(){
+      return pickDeterministic(pages, seedFromDate(new Date()));
+    }
+
+    // ---- palette + brush controls ----
+    $("#palette").innerHTML = COLOR_PALETTE.map(function(c,i){
+      return '<div class="swatch'+(i===0?' active':'')+'" style="background:'+c+'" data-color="'+c+'"></div>';
+    }).join("");
+    $all(".swatch").forEach(function(sw){
+      sw.addEventListener("click", function(){
+        $all(".swatch").forEach(function(s){ s.classList.remove("active"); });
+        sw.classList.add("active");
+        currentColor = sw.dataset.color;
+      });
+    });
+
+    $("#brush-row").innerHTML = [8,14,24].map(function(sz){
+      return '<button class="btn-ghost" data-size="'+sz+'" type="button">'+
+        (sz===8?"Fine":sz===14?"Medium":"Bold")+'</button>';
+    }).join("");
+    $all("#brush-row button").forEach(function(b){
+      b.addEventListener("click", function(){ currentBrush = parseInt(b.dataset.size,10); });
+    });
+
+    // ---- "Choose a drawing" picker ----
+    pickerGrid.innerHTML = pages.map(function(p){
+      var thumb = p.type === "image"
+        ? '<img src="'+p.src+'" alt="">'
+        : '<div class="picker-vector-icon">'+(p.name||"").split(" ")[0]+'</div>';
+      return '<button class="picker-item" type="button" data-page-id="'+p.id+'">'+thumb+
+        '<span class="picker-name">'+(p.name||"Drawing")+'</span></button>';
+    }).join("");
+    $all(".picker-item", pickerGrid).forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var page = pages.filter(function(p){ return p.id === btn.dataset.pageId; })[0];
+        if(page) switchToPage(page);
+        pickerOverlay.classList.remove("show");
+        pickerOverlay.hidden = true;
+      });
+    });
+
+    $("#color-choose").addEventListener("click", function(){
+      pickerOverlay.hidden = false;
+      pickerOverlay.classList.add("show");
+    });
+    $("#picker-close").addEventListener("click", function(){
+      pickerOverlay.classList.remove("show");
+      pickerOverlay.hidden = true;
+    });
+
+    $("#color-shuffle").addEventListener("click", function(){
+      var others = pages.filter(function(p){ return !currentPage || p.id !== currentPage.id; });
+      var pool = others.length ? others : pages;
+      switchToPage(pool[Math.floor(Math.random()*pool.length)]);
+    });
+
+    $("#color-save").addEventListener("click", function(){
+      dirty = true; // pressing Save always writes the canvas as it is right now
+      flushSave();
+      showStatus("Saved 💾");
+    });
+
+    $("#color-clear").addEventListener("click", function(){
+      clearPaintCanvas();
+      dirty = true;
+      flushSave();
+      showStatus("Cleared");
+    });
+
+    // ---- drawing ----
+    var painting = false;
+    function posFromEvent(e){
+      var rect = paintCanvas.getBoundingClientRect();
+      var scaleX = W/rect.width;
+      var scaleY = H/rect.height;
+      return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
+    }
+    function paintAt(x,y){
+      pctx.beginPath();
+      pctx.arc(x,y,currentBrush,0,Math.PI*2);
+      pctx.fillStyle = currentColor;
+      pctx.fill();
+    }
+    paintCanvas.addEventListener("pointerdown", function(e){
+      painting = true;
+      paintCanvas.setPointerCapture(e.pointerId);
+      var pos = posFromEvent(e);
+      paintAt(pos.x,pos.y);
+      scheduleAutosave();
+    });
+    paintCanvas.addEventListener("pointermove", function(e){
+      if(!painting) return;
+      var pos = posFromEvent(e);
+      paintAt(pos.x,pos.y);
+      scheduleAutosave();
+    });
+    ["pointerup","pointerleave","pointercancel"].forEach(function(ev){
+      paintCanvas.addEventListener(ev, function(){ painting = false; });
+    });
+
+    switchToPage(dailyDefaultPage(), { skipFlush:true });
+  }
+
+  // Auto-login (same-tab reload) runs last, after every var/function
+  // above has been defined -- otherwise a returning tab could hit
+  // showApp() before things like FLOWER_TYPES exist yet.
+  try {
+    if(sessionStorage.getItem(SESSION_KEY) === "1"){ showApp(); }
+  } catch(e){}
+
+})();
+</script>
+</body>
+</html>
