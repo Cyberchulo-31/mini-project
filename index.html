@@ -123,11 +123,37 @@
     gap:10px;margin-bottom:14px;
   }
   header#topbar .who{font-family:'Cormorant Garamond',serif;font-size:1.05rem;color:var(--muted);}
-  #lock-btn, #music-btn{
+  #lock-btn{
     background:none;border:1px solid var(--border);color:var(--muted);
     border-radius:999px;padding:7px 13px;cursor:pointer;font-size:.85rem;
   }
-  #music-btn[hidden]{display:none;}
+
+  /* ---------- Spotify floating player ---------- */
+  #spotify-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    display:flex;align-items:center;gap:8px;
+    background:var(--surface);border-top:1px solid var(--border);
+    box-shadow:0 -6px 20px rgba(0,0,0,.08);
+    padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  }
+  #spotify-bar[hidden]{display:none;}
+  #spotify-bar iframe{
+    flex:1 1 auto;width:100%;height:80px;border:none;border-radius:12px;
+    display:block;
+  }
+  #spotify-close{
+    flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:999px;width:30px;height:30px;cursor:pointer;font-size:.9rem;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #spotify-reopen{
+    position:fixed;right:16px;bottom:16px;z-index:50;
+    background:var(--accent);color:#fff;border:none;border-radius:999px;
+    padding:10px 16px;font-weight:800;font-size:.85rem;cursor:pointer;
+    box-shadow:var(--shadow);display:flex;align-items:center;gap:6px;
+  }
+  #spotify-reopen[hidden]{display:none;}
+  body.has-player-bar{padding-bottom:104px;}
   nav#tabs{
     display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
     background:var(--surface);border:1px solid var(--border);
@@ -354,11 +380,9 @@
   <header id="topbar">
     <span class="who">for <strong id="header-name">you</strong></span>
     <span style="display:flex;gap:8px;">
-      <button id="music-btn" type="button" hidden>🔊</button>
       <button id="lock-btn" type="button">🔒 Lock</button>
     </span>
   </header>
-  <audio id="bg-music" loop preload="none"></audio>
 
   <nav id="tabs">
     <button class="nav-btn active" data-tab="home" type="button">🏡 Home</button>
@@ -498,6 +522,12 @@
   </main>
 </div>
 
+<div id="spotify-bar" hidden>
+  <iframe id="spotify-frame" title="Spotify playlist" allow="autoplay; encrypted-media; clipboard-write" loading="lazy"></iframe>
+  <button id="spotify-close" type="button" aria-label="Hide player">✕</button>
+</div>
+<button id="spotify-reopen" type="button" hidden>🎵 Music</button>
+
 <div id="photo-modal">
   <div class="box">
     <button class="modal-nav prev" id="modal-prev" type="button" aria-label="Previous memory">‹</button>
@@ -527,15 +557,13 @@
   // Example: { date: '2026-12-25', label: 'Christmas 🎄' }
   var SPECIAL_DATES = [];
 
-  // Background music that plays softly across the whole site (it's one
-  // page under the hood, so it just keeps playing as you switch tabs).
-  // List the filenames of songs you have the rights to use (your own
-  // recordings, or royalty-free/licensed tracks) and upload those exact
-  // files into the same GitHub folder as this index.html. They'll play in
-  // order, looping back to the first when the list ends. Leave this empty
-  // ([]) and the music button won't even show up.
-  //   Example: var MUSIC_TRACKS = ["our-song.mp3", "another-favorite.mp3"];
-  var MUSIC_TRACKS = [];
+  // Background music: a small floating Spotify player pinned to the bottom
+  // of the screen, visible on every tab. Paste any Spotify playlist (or
+  // album/track) share link below and it'll show up automatically. To swap
+  // in a different playlist later, just replace this link with a new one
+  // copied from Spotify's "Share" menu. Leave it empty ("") and the player
+  // won't show up at all.
+  var SPOTIFY_PLAYLIST_URL = "https://open.spotify.com/playlist/7pnaAvZmK7NOwz9MaqqZy9?si=35c0c0d5b82b4b2d";
 
   // Photo sharing (both of you can add unlimited photos, from any device).
   // Fill these in with your Firebase project's web app config to turn it on —
@@ -662,54 +690,64 @@
   setLoginName();
 
   /* ============================================================
-     BACKGROUND MUSIC
-     One <audio> element, since the whole site is really a single page —
-     it just keeps playing underneath as you switch tabs. Only shows up
-     at all once MUSIC_TRACKS (above) has real files in it.
+     SPOTIFY PLAYER
+     A small floating bar pinned to the bottom of the screen, visible on
+     every tab (the whole site is really one page, so it just stays put
+     as you switch tabs). Uses Spotify's own official embed widget, so
+     Spotify handles the actual licensing/playback -- we're just showing
+     their player. Because it's an embedded iframe, the person has to tap
+     play themselves the first time (browsers and Spotify both block
+     silent autoplay here) -- after that it behaves like a normal Spotify
+     player.
      ============================================================ */
-  var MUSIC_MUTED_KEY = "fmp_music_muted";
-  var musicSetUp = false;
-  var musicIdx = 0;
+  var SPOTIFY_HIDDEN_KEY = "fmp_spotify_hidden";
+  var spotifySetUp = false;
 
-  function setupMusic(){
-    if(musicSetUp) return;
-    if(!MUSIC_TRACKS.length) return;
-    musicSetUp = true;
+  function spotifyEmbedUrl(){
+    if(!SPOTIFY_PLAYLIST_URL) return null;
+    var m = SPOTIFY_PLAYLIST_URL.match(/open\.spotify\.com\/(playlist|album|track)\/([A-Za-z0-9]+)/);
+    if(!m) return null;
+    return "https://open.spotify.com/embed/" + m[1] + "/" + m[2] + "?utm_source=generator&theme=0";
+  }
 
-    var audio = $("#bg-music");
-    var btn = $("#music-btn");
-    btn.hidden = false;
-    btn.removeAttribute("hidden");
+  function setupSpotifyPlayer(){
+    if(spotifySetUp) return;
+    var embedUrl = spotifyEmbedUrl();
+    if(!embedUrl) return;
+    spotifySetUp = true;
 
-    function updateBtn(){
-      btn.textContent = audio.paused ? "🔇" : "🔊";
-      btn.setAttribute("aria-label", audio.paused ? "Play music" : "Pause music");
+    var bar = $("#spotify-bar");
+    var frame = $("#spotify-frame");
+    var closeBtn = $("#spotify-close");
+    var reopenBtn = $("#spotify-reopen");
+    var loaded = false;
+
+    function showBar(){
+      if(!loaded){ frame.src = embedUrl; loaded = true; }
+      bar.hidden = false;
+      bar.removeAttribute("hidden");
+      reopenBtn.hidden = true;
+      reopenBtn.setAttribute("hidden", "");
+      document.body.classList.add("has-player-bar");
+      safeSet(SPOTIFY_HIDDEN_KEY, "0");
     }
 
-    function playTrack(i){
-      musicIdx = ((i % MUSIC_TRACKS.length) + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
-      audio.src = MUSIC_TRACKS[musicIdx];
-      audio.play().then(updateBtn).catch(updateBtn); // autoplay can be blocked without a tap — that's fine
+    function hideBar(){
+      bar.hidden = true;
+      bar.setAttribute("hidden", "");
+      reopenBtn.hidden = false;
+      reopenBtn.removeAttribute("hidden");
+      document.body.classList.remove("has-player-bar");
+      safeSet(SPOTIFY_HIDDEN_KEY, "1");
     }
 
-    audio.addEventListener("ended", function(){ playTrack(musicIdx + 1); });
-    audio.addEventListener("play", updateBtn);
-    audio.addEventListener("pause", updateBtn);
+    closeBtn.addEventListener("click", hideBar);
+    reopenBtn.addEventListener("click", showBar);
 
-    btn.addEventListener("click", function(){
-      if(audio.paused){
-        safeSet(MUSIC_MUTED_KEY, "0");
-        if(audio.src){ audio.play().catch(function(){}); } else { playTrack(0); }
-      } else {
-        safeSet(MUSIC_MUTED_KEY, "1");
-        audio.pause();
-      }
-    });
-
-    if(safeGet(MUSIC_MUTED_KEY) === "1"){
-      updateBtn();
+    if(safeGet(SPOTIFY_HIDDEN_KEY) === "1"){
+      hideBar();
     } else {
-      playTrack(0);
+      showBar();
     }
   }
 
@@ -721,7 +759,7 @@
     if(appInited) return;
     appInited = true;
 
-    setupMusic();
+    setupSpotifyPlayer();
 
     $all(".nav-btn").forEach(function(btn){
       btn.addEventListener("click", function(){
