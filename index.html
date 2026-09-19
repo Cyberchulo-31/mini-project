@@ -22,6 +22,7 @@
     --border:#F0D9DE;
     --shadow:0 14px 34px -14px rgba(156,47,82,.28);
     color-scheme: light dark;
+    --heart-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 90 C20 65 0 45 0 25 C0 8 15 0 28 0 C38 0 46 6 50 15 C54 6 62 0 72 0 C85 0 100 8 100 25 C100 45 80 65 50 90 Z' fill='white'/%3E%3C/svg%3E");
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -122,10 +123,11 @@
     gap:10px;margin-bottom:14px;
   }
   header#topbar .who{font-family:'Cormorant Garamond',serif;font-size:1.05rem;color:var(--muted);}
-  #lock-btn{
+  #lock-btn, #music-btn{
     background:none;border:1px solid var(--border);color:var(--muted);
     border-radius:999px;padding:7px 13px;cursor:pointer;font-size:.85rem;
   }
+  #music-btn[hidden]{display:none;}
   nav#tabs{
     display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
     background:var(--surface);border:1px solid var(--border);
@@ -228,11 +230,35 @@
     background:var(--surface);border-radius:20px;padding:16px;max-width:min(92vw,480px);text-align:center;
   }
   #photo-modal img, #photo-modal video{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;background:#000;}
-  @keyframes memoryPop{
-    from{opacity:0;transform:scale(.92) translateY(10px);}
-    to{opacity:1;transform:scale(1) translateY(0);}
+
+  /* Memory transitions: each time the slideshow (or Prev/Next) moves to a
+     new photo, one of a few random effects plays -- a heart-shaped iris
+     open/close, a plain cross-fade, or a soft zoom fade. */
+  @keyframes heartIn{
+    from{ -webkit-mask-size:0% 0%; mask-size:0% 0%; opacity:.5; }
+    to{ -webkit-mask-size:280% 280%; mask-size:280% 280%; opacity:1; }
   }
-  #photo-modal img.media-enter, #photo-modal video.media-enter{animation:memoryPop .5s cubic-bezier(.2,.7,.3,1);}
+  @keyframes heartOut{
+    from{ -webkit-mask-size:280% 280%; mask-size:280% 280%; opacity:1; }
+    to{ -webkit-mask-size:0% 0%; mask-size:0% 0%; opacity:.5; }
+  }
+  @keyframes fadeInPlain{ from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:none;} }
+  @keyframes fadeOutPlain{ from{opacity:1;transform:none;} to{opacity:0;transform:translateY(-10px);} }
+  @keyframes zoomInPlain{ from{opacity:0;transform:scale(.85);} to{opacity:1;transform:scale(1);} }
+  @keyframes zoomOutPlain{ from{opacity:1;transform:scale(1);} to{opacity:0;transform:scale(1.12);} }
+
+  #photo-modal img.enter-heart, #photo-modal video.enter-heart,
+  #photo-modal img.exit-heart, #photo-modal video.exit-heart{
+    -webkit-mask-image:var(--heart-mask); mask-image:var(--heart-mask);
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    -webkit-mask-position:center; mask-position:center;
+  }
+  #photo-modal img.enter-heart, #photo-modal video.enter-heart{ animation:heartIn .55s ease-out; }
+  #photo-modal img.exit-heart, #photo-modal video.exit-heart{ animation:heartOut .4s ease-in forwards; }
+  #photo-modal img.enter-fade, #photo-modal video.enter-fade{ animation:fadeInPlain .45s ease-out; }
+  #photo-modal img.exit-fade, #photo-modal video.exit-fade{ animation:fadeOutPlain .35s ease-in forwards; }
+  #photo-modal img.enter-zoom, #photo-modal video.enter-zoom{ animation:zoomInPlain .45s cubic-bezier(.2,.7,.3,1); }
+  #photo-modal img.exit-zoom, #photo-modal video.exit-zoom{ animation:zoomOutPlain .35s ease-in forwards; }
   #photo-modal .modal-meta{font-size:.8rem;color:var(--muted);margin:10px 0 0;}
   #photo-modal .modal-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
   .modal-nav{
@@ -302,7 +328,8 @@
   }
 
   @media (prefers-reduced-motion: reduce){
-    .tab,.photo-card{animation:none;}
+    .tab,.photo-card,
+    #photo-modal img,#photo-modal video{animation:none !important;}
   }
 </style>
 </head>
@@ -326,8 +353,12 @@
 <div id="app" hidden>
   <header id="topbar">
     <span class="who">for <strong id="header-name">you</strong></span>
-    <button id="lock-btn" type="button">🔒 Lock</button>
+    <span style="display:flex;gap:8px;">
+      <button id="music-btn" type="button" hidden>🔊</button>
+      <button id="lock-btn" type="button">🔒 Lock</button>
+    </span>
   </header>
+  <audio id="bg-music" loop preload="none"></audio>
 
   <nav id="tabs">
     <button class="nav-btn active" data-tab="home" type="button">🏡 Home</button>
@@ -496,6 +527,16 @@
   // Example: { date: '2026-12-25', label: 'Christmas 🎄' }
   var SPECIAL_DATES = [];
 
+  // Background music that plays softly across the whole site (it's one
+  // page under the hood, so it just keeps playing as you switch tabs).
+  // List the filenames of songs you have the rights to use (your own
+  // recordings, or royalty-free/licensed tracks) and upload those exact
+  // files into the same GitHub folder as this index.html. They'll play in
+  // order, looping back to the first when the list ends. Leave this empty
+  // ([]) and the music button won't even show up.
+  //   Example: var MUSIC_TRACKS = ["our-song.mp3", "another-favorite.mp3"];
+  var MUSIC_TRACKS = [];
+
   // Photo sharing (both of you can add unlimited photos, from any device).
   // Fill these in with your Firebase project's web app config to turn it on —
   // see the setup instructions Nosa was given. Leave apiKey empty ("") and
@@ -621,12 +662,66 @@
   setLoginName();
 
   /* ============================================================
+     BACKGROUND MUSIC
+     One <audio> element, since the whole site is really a single page —
+     it just keeps playing underneath as you switch tabs. Only shows up
+     at all once MUSIC_TRACKS (above) has real files in it.
+     ============================================================ */
+  var MUSIC_MUTED_KEY = "fmp_music_muted";
+  var musicSetUp = false;
+  var musicIdx = 0;
+
+  function setupMusic(){
+    if(musicSetUp) return;
+    if(!MUSIC_TRACKS.length) return;
+    musicSetUp = true;
+
+    var audio = $("#bg-music");
+    var btn = $("#music-btn");
+    btn.hidden = false;
+    btn.removeAttribute("hidden");
+
+    function updateBtn(){
+      btn.textContent = audio.paused ? "🔇" : "🔊";
+      btn.setAttribute("aria-label", audio.paused ? "Play music" : "Pause music");
+    }
+
+    function playTrack(i){
+      musicIdx = ((i % MUSIC_TRACKS.length) + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
+      audio.src = MUSIC_TRACKS[musicIdx];
+      audio.play().then(updateBtn).catch(updateBtn); // autoplay can be blocked without a tap — that's fine
+    }
+
+    audio.addEventListener("ended", function(){ playTrack(musicIdx + 1); });
+    audio.addEventListener("play", updateBtn);
+    audio.addEventListener("pause", updateBtn);
+
+    btn.addEventListener("click", function(){
+      if(audio.paused){
+        safeSet(MUSIC_MUTED_KEY, "0");
+        if(audio.src){ audio.play().catch(function(){}); } else { playTrack(0); }
+      } else {
+        safeSet(MUSIC_MUTED_KEY, "1");
+        audio.pause();
+      }
+    });
+
+    if(safeGet(MUSIC_MUTED_KEY) === "1"){
+      updateBtn();
+    } else {
+      playTrack(0);
+    }
+  }
+
+  /* ============================================================
      TABS
      ============================================================ */
   var appInited = false;
   function initAppOnce(){
     if(appInited) return;
     appInited = true;
+
+    setupMusic();
 
     $all(".nav-btn").forEach(function(btn){
       btn.addEventListener("click", function(){
@@ -1186,19 +1281,55 @@
     renderModalItem();
   }
 
-  // Restarts the little "pop in" animation on a media element — remove the
-  // class, force a reflow, then add it back so the animation replays even
-  // though the element never left the DOM.
-  function playMediaTransition(el){
-    el.classList.remove("media-enter");
-    void el.offsetWidth;
-    el.classList.add("media-enter");
+  // A few different looks for moving between memories — picked at random
+  // each time, so the slideshow doesn't feel repetitive. "heart" uses a
+  // heart-shaped mask that opens/closes around the photo; the others are
+  // simpler fades/zooms for variety.
+  var TRANSITION_STYLES = ["heart", "heart", "fade", "zoom"]; // heart shows up a bit more often
+  var modalHasContent = false; // false until the very first photo has been painted
+
+  function prefersReducedMotion(){
+    try { return window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches; }
+    catch(e){ return false; }
   }
 
-  function renderModalItem(){
-    if(modalIndex < 0 || modalIndex >= photosCache.length) modalIndex = 0;
-    var item = photosCache[modalIndex];
-    if(!item) return;
+  function pickTransitionStyle(){
+    return TRANSITION_STYLES[Math.floor(Math.random() * TRANSITION_STYLES.length)];
+  }
+
+  function getVisibleModalEl(){
+    var vidEl = $("#modal-video");
+    return vidEl.style.display === "block" ? vidEl : $("#modal-img");
+  }
+
+  // Plays the "in" animation on whichever element now holds the new photo.
+  function playEnterTransition(el, style){
+    el.classList.remove("enter-heart","enter-fade","enter-zoom","exit-heart","exit-fade","exit-zoom");
+    if(prefersReducedMotion()) return;
+    void el.offsetWidth; // restart the animation even if the class name repeats
+    el.classList.add("enter-" + style);
+  }
+
+  // Plays the "out" animation on the currently-visible element, then calls
+  // back once it's done (or immediately, if the person prefers less motion).
+  function playExitTransition(el, style, cb){
+    if(prefersReducedMotion()){ cb(); return; }
+    var done = false;
+    function finish(){
+      if(done) return;
+      done = true;
+      el.removeEventListener("animationend", finish);
+      cb();
+    }
+    el.classList.remove("enter-heart","enter-fade","enter-zoom");
+    void el.offsetWidth;
+    el.classList.add("exit-" + style);
+    el.addEventListener("animationend", finish);
+    setTimeout(finish, 550); // safety net in case animationend doesn't fire
+  }
+
+  // Actually swaps in the new photo/video and plays its entrance.
+  function paintModalItem(item, style){
     var imgEl = $("#modal-img"), vidEl = $("#modal-video");
     vidEl.onended = null;
     if(item.type === "video"){
@@ -1207,14 +1338,14 @@
       if(vidEl.src !== item.videoUrl) vidEl.src = item.videoUrl || "";
       vidEl.muted = slideshowOn;
       if(slideshowOn){ vidEl.currentTime = 0; vidEl.play().catch(function(){}); }
-      playMediaTransition(vidEl);
+      playEnterTransition(vidEl, style);
     } else {
       vidEl.pause();
       vidEl.removeAttribute("src");
       vidEl.style.display = "none";
       imgEl.style.display = "block";
       imgEl.src = item.img || "";
-      playMediaTransition(imgEl);
+      playEnterTransition(imgEl, style);
     }
     $("#modal-meta").textContent = item.addedBy ? ("Added by " + item.addedBy) : "";
     $("#photo-modal").dataset.photoId = item.id;
@@ -1222,6 +1353,25 @@
     $("#modal-prev").style.display = multi ? "flex" : "none";
     $("#modal-next").style.display = multi ? "flex" : "none";
     scheduleSlideshowAdvance();
+  }
+
+  function renderModalItem(){
+    if(modalIndex < 0 || modalIndex >= photosCache.length) modalIndex = 0;
+    var item = photosCache[modalIndex];
+    if(!item) return;
+    var style = pickTransitionStyle();
+
+    if(!modalHasContent){
+      // first photo since the viewer opened — nothing to fade out yet
+      modalHasContent = true;
+      paintModalItem(item, style);
+      return;
+    }
+
+    var activeEl = getVisibleModalEl();
+    playExitTransition(activeEl, style, function(){
+      paintModalItem(item, style);
+    });
   }
 
   // Manual Prev/Next: deliberate, sequential browsing through the memories
@@ -1271,6 +1421,7 @@
     slideshowOn = false;
     clearTimeout(slideshowTimer);
     slideshowTimer = null;
+    modalHasContent = false; // next open should just fade in, not fade out first
     $("#slideshow-btn").textContent = "▶ Slideshow";
     var vidEl = $("#modal-video");
     vidEl.onended = null;
