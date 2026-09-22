@@ -180,6 +180,15 @@
   #music-add-row{display:flex;gap:6px;margin-bottom:6px;}
   #music-add-row .btn-ghost{flex:1;text-align:center;font-size:.78rem;padding:8px 10px;display:block;}
   #music-status{font-size:.72rem;color:var(--muted);min-height:1.1em;margin:0 0 6px;text-align:center;}
+  #music-progress-wrap{
+    display:none;height:6px;border-radius:999px;background:var(--surface-2);
+    overflow:hidden;margin:0 0 8px;
+  }
+  #music-progress-wrap.show{display:block;}
+  #music-progress-bar{
+    height:100%;width:0%;background:var(--accent);border-radius:999px;
+    transition:width .2s ease;
+  }
   #music-now-playing{
     font-size:.8rem;font-weight:800;color:var(--accent-deep);text-align:center;
     margin-bottom:6px;min-height:1.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -190,6 +199,7 @@
     border-radius:10px;width:30px;height:30px;flex:none;cursor:pointer;font-size:.85rem;
     display:flex;align-items:center;justify-content:center;
   }
+  #music-shuffle.active{background:var(--accent-deep);border-color:var(--accent-deep);color:#fff;}
   #music-audio{flex:1;width:100%;height:32px;min-width:0;}
   #music-empty{font-size:.76rem;color:var(--muted);text-align:center;padding:10px 4px;margin:0;}
   #music-list{
@@ -351,10 +361,25 @@
     padding:10px 16px;border-radius:12px;font-weight:800;cursor:pointer;
   }
 
-  /* ---------- Puzzle ---------- */
-  /* a bit less side padding here than other cards, so the board/tray have
+  /* ---------- Games hub ---------- */
+  #games-list{display:flex;flex-direction:column;gap:12px;margin-top:6px;}
+  .game-card{
+    display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+    background:var(--surface-2);border:1.5px solid var(--border);border-radius:16px;
+    padding:14px 16px;cursor:pointer;color:var(--ink);font-family:inherit;
+  }
+  .game-card:hover{border-color:var(--accent);}
+  .game-icon{font-size:1.7rem;flex:none;}
+  .game-info{flex:1;min-width:0;}
+  .game-name{display:block;font-weight:800;font-size:1rem;}
+  .game-desc{display:block;font-size:.8rem;color:var(--muted);margin-top:2px;}
+  .game-arrow{font-size:1.3rem;color:var(--muted);flex:none;}
+  .game-back{margin-bottom:14px;}
+  /* a bit less side padding on an open game's card, so boards/pieces have
      more room to breathe on a phone screen */
-  #tab-puzzle .card{padding:22px 12px;}
+  .game-view{padding:22px 12px;}
+
+  /* ---------- Puzzle ---------- */
   #puzzle-area{
     position:relative;width:100%;max-width:600px;margin:0 auto;
   }
@@ -376,6 +401,51 @@
   #puzzle-controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
   #puzzle-win{
     text-align:center;font-weight:800;color:var(--accent-deep);margin-top:10px;min-height:1.4em;
+  }
+
+  /* ---------- Chess ---------- */
+  /* pass-and-play on one device: the board rotates 180deg after each move so
+     it's always right-side-up for whoever's turn it is, and each piece glyph
+     rotates back so it never looks upside down */
+  #chess-status{
+    text-align:center;font-weight:800;color:var(--accent-deep);
+    margin:4px 0 12px;min-height:1.3em;
+  }
+  #chess-board{
+    display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+    width:100%;max-width:420px;aspect-ratio:1/1;margin:0 auto;
+    border-radius:14px;overflow:hidden;border:2px solid var(--border);
+    box-shadow:var(--shadow);transition:transform .5s ease;
+  }
+  #chess-board.flipped{transform:rotate(180deg);}
+  .chess-sq{
+    position:relative;display:flex;align-items:center;justify-content:center;
+    border:none;padding:0;margin:0;cursor:pointer;
+  }
+  .chess-sq.light{background:var(--surface-2);}
+  .chess-sq.dark{background:var(--accent-2);}
+  .chess-sq .piece{
+    font-size:min(7.5vw,30px);line-height:1;display:inline-block;
+    transition:transform .5s ease;
+  }
+  #chess-board.flipped .piece{transform:rotate(180deg);}
+  .chess-sq.piece-w .piece{color:var(--surface);-webkit-text-stroke:1.1px var(--ink);paint-order:stroke fill;}
+  .chess-sq.piece-b .piece{color:var(--ink);}
+  .chess-sq.selected{box-shadow:inset 0 0 0 3px var(--accent-deep);}
+  .chess-sq.last-move{box-shadow:inset 0 0 0 3px rgba(185,138,60,.75);}
+  .chess-sq.in-check{box-shadow:inset 0 0 0 3px #d1364c;}
+  .chess-sq.legal-move::after{
+    content:"";position:absolute;width:24%;height:24%;border-radius:50%;
+    background:rgba(156,47,82,.4);pointer-events:none;
+  }
+  .chess-sq.legal-capture::after{
+    content:"";position:absolute;inset:7%;border-radius:50%;
+    border:3px solid rgba(156,47,82,.55);background:none;pointer-events:none;
+  }
+  #chess-controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;justify-content:center;}
+  #chess-history{
+    font-size:.76rem;color:var(--muted);text-align:center;margin-top:10px;
+    line-height:1.7;word-break:break-word;
   }
 
   /* ---------- Puzzle win celebration ---------- */
@@ -517,7 +587,7 @@
   <nav id="tabs">
     <button class="nav-btn active" data-tab="home" type="button">🏡 Home</button>
     <button class="nav-btn" data-tab="photos" type="button">💗 Memories</button>
-    <button class="nav-btn" data-tab="puzzle" type="button">🧩 Puzzle</button>
+    <button class="nav-btn" data-tab="games" type="button">🎮 Games</button>
     <button class="nav-btn" data-tab="calendar" type="button">📅 Calendar</button>
     <button class="nav-btn" data-tab="color" type="button">🎨 Color</button>
     <button class="nav-btn" data-tab="watch" type="button">🎬 Watch</button>
@@ -594,9 +664,33 @@
       </div>
     </section>
 
-    <!-- PUZZLE -->
-    <section class="tab" id="tab-puzzle">
-      <div class="card">
+    <!-- GAMES -->
+    <section class="tab" id="tab-games">
+      <div class="card" id="games-hub">
+        <p class="eyebrow">Just for us</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Pick a game to play together.</p>
+        <div id="games-list">
+          <button class="game-card" type="button" data-game="puzzle">
+            <span class="game-icon">🧩</span>
+            <span class="game-info">
+              <span class="game-name">Jigsaw Puzzle</span>
+              <span class="game-desc">Rebuild one of your memories, piece by piece</span>
+            </span>
+            <span class="game-arrow">›</span>
+          </button>
+          <button class="game-card" type="button" data-game="chess">
+            <span class="game-icon">♟️</span>
+            <span class="game-info">
+              <span class="game-name">Chess</span>
+              <span class="game-desc">Pass the phone and take turns on one board</span>
+            </span>
+            <span class="game-arrow">›</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card game-view" id="game-view-puzzle" hidden>
+        <button class="btn-ghost game-back" type="button" data-back>‹ Games</button>
         <p class="eyebrow">Put us back together</p>
         <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Drag the pieces onto the board and rebuild one of your memories, one piece at a time.</p>
         <div id="puzzle-area">
@@ -608,6 +702,19 @@
           <button class="btn-ghost" id="puzzle-shuffle" type="button">🔀 Shuffle</button>
           <button class="btn-ghost" id="puzzle-newphoto" type="button">🖼 New Photo</button>
         </div>
+      </div>
+
+      <div class="card game-view" id="game-view-chess" hidden>
+        <button class="btn-ghost game-back" type="button" data-back>‹ Games</button>
+        <p class="eyebrow">Checkmate me, princess</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Take turns making moves on the same phone -- the board flips around after every move so it's always right-side-up for whoever's turn it is.</p>
+        <div id="chess-status"></div>
+        <div id="chess-board"></div>
+        <div id="chess-controls">
+          <button class="btn-ghost" id="chess-undo" type="button">↩ Undo</button>
+          <button class="btn-ghost" id="chess-new" type="button">🔄 New Game</button>
+        </div>
+        <p id="chess-history"></p>
       </div>
     </section>
 
@@ -678,8 +785,10 @@
       </label>
     </div>
     <p id="music-status"></p>
+    <div id="music-progress-wrap"><div id="music-progress-bar"></div></div>
     <div id="music-now-playing">Nothing playing yet</div>
     <div id="music-transport">
+      <button id="music-shuffle" type="button" aria-label="Shuffle" aria-pressed="false">🔀</button>
       <button id="music-prev" type="button" aria-label="Previous song">⏮</button>
       <audio id="music-audio" controls preload="none"></audio>
       <button id="music-next" type="button" aria-label="Next song">⏭</button>
@@ -915,6 +1024,23 @@
     var audioEl = $("#music-audio");
     var prevBtn = $("#music-prev");
     var nextBtn = $("#music-next");
+    var shuffleBtn = $("#music-shuffle");
+    var shuffleOn = false;
+    var autoplayTried = false;
+
+    // A quiet, gentle default -- audible without being startling. Note:
+    // iOS Safari doesn't allow JS to change an <audio> element's volume at
+    // all (only the phone's hardware buttons control it there), so this
+    // only takes effect on desktop browsers and Android.
+    audioEl.volume = 0.35;
+
+    function randomIndex(excluding){
+      if(!songsCache.length) return -1;
+      if(songsCache.length === 1) return 0;
+      var i;
+      do { i = Math.floor(Math.random() * songsCache.length); } while(i === excluding);
+      return i;
+    }
 
     function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
@@ -1048,7 +1174,9 @@
     audioEl.addEventListener("play", function(){ widget.classList.add("playing"); });
     audioEl.addEventListener("pause", function(){ widget.classList.remove("playing"); });
     audioEl.addEventListener("ended", function(){
-      if(songsCache.length){ playIndex((currentSongIndex + 1) % songsCache.length); }
+      if(!songsCache.length) return;
+      if(shuffleOn){ playIndex(randomIndex(currentSongIndex)); }
+      else { playIndex((currentSongIndex + 1) % songsCache.length); }
     });
 
     prevBtn.addEventListener("click", function(){
@@ -1057,7 +1185,13 @@
     });
     nextBtn.addEventListener("click", function(){
       if(!songsCache.length) return;
-      playIndex((currentSongIndex + 1) % songsCache.length);
+      if(shuffleOn){ playIndex(randomIndex(currentSongIndex)); }
+      else { playIndex((currentSongIndex + 1) % songsCache.length); }
+    });
+    shuffleBtn.addEventListener("click", function(){
+      shuffleOn = !shuffleOn;
+      shuffleBtn.classList.toggle("active", shuffleOn);
+      shuffleBtn.setAttribute("aria-pressed", shuffleOn ? "true" : "false");
     });
 
     listEl.addEventListener("click", function(e){
@@ -1078,6 +1212,9 @@
       if(files.length) handleNewSongs(files);
     });
 
+    var progressWrap = $("#music-progress-wrap");
+    var progressBar = $("#music-progress-bar");
+
     function handleNewSongs(files){
       if(!initFirebaseOnce()){
         statusEl.textContent = "Song sharing isn't set up yet -- ask Nosa to finish the Firebase setup.";
@@ -1085,24 +1222,38 @@
       }
       songsDb = db;
       statusEl.textContent = "Adding " + files.length + " song" + (files.length===1?"":"s") + "…";
-      var remaining = files.length, hadError = false;
-      function oneDone(err){
+      progressWrap.classList.add("show");
+      progressBar.style.width = "0%";
+      var remaining = files.length, hadError = false, lastErrorMsg = "";
+      function oneDone(err, errMsg){
         remaining--;
-        if(err) hadError = true;
+        if(err){ hadError = true; lastErrorMsg = errMsg || "unknown error"; }
         if(remaining === 0){
-          statusEl.textContent = hadError ? "Added what we could -- one or two didn't make it." : "";
+          progressWrap.classList.remove("show");
+          progressBar.style.width = "0%";
+          statusEl.textContent = hadError ? ("Upload failed: " + lastErrorMsg) : "";
         }
       }
       files.forEach(function(file){ uploadSongFile(file, oneDone); });
     }
 
     function uploadSongFile(file, cb){
-      if(!storage){ cb(true); return; }
+      if(!storage){ cb(true, "Storage isn't set up."); return; }
       var title = (file.name || "Song").replace(/\.[a-zA-Z0-9]+$/, "").replace(/[_-]+/g, " ").trim() || "Song";
       var safeName = (file.name || "song").replace(/[^a-zA-Z0-9.]/g, "_");
       var path = "songs/" + Date.now() + "_" + Math.random().toString(36).slice(2) + "_" + safeName;
       var ref = storage.ref(path);
-      ref.put(file).then(function(){
+      var task = ref.put(file);
+      // Real upload progress (not a guess) -- Firebase reports bytes
+      // transferred as the file actually goes up, so the bar/percentage
+      // reflects exactly how far along this specific file is.
+      task.on("state_changed", function(snap){
+        var pct = snap.totalBytes ? Math.round(100 * snap.bytesTransferred / snap.totalBytes) : 0;
+        statusEl.textContent = "Uploading “" + title + "”… " + pct + "%";
+        progressBar.style.width = pct + "%";
+      });
+      task.then(function(){
+        statusEl.textContent = "Saving “" + title + "”…";
         return ref.getDownloadURL();
       }).then(function(url){
         return songsDb.collection("songs").add({
@@ -1111,7 +1262,12 @@
           storagePath: path,
           ts: Date.now()
         });
-      }).then(function(){ cb(false); }).catch(function(){ cb(true); });
+      }).then(function(){ cb(false); }).catch(function(err){
+        // Surface the real reason (e.g. "storage/unauthorized",
+        // "Missing or insufficient permissions") instead of a vague
+        // catch-all, so a future failure is easy to diagnose at a glance.
+        cb(true, (err && (err.code || err.message)) || "unknown error");
+      });
     }
 
     function deleteSong(song){
@@ -1132,6 +1288,15 @@
         // after an add/remove (possibly from the other device)
         currentSongIndex = playingId ? songsCache.findIndex(function(s){ return s.id === playingId; }) : -1;
         renderSongList();
+
+        // The moment the playlist first loads after she opens/unlocks the
+        // site, start a random song playing on its own -- quiet, not a
+        // silent page. Only ever fires once per visit, and only if nothing
+        // is already playing (so it never interrupts a song she's chosen).
+        if(!autoplayTried && songsCache.length && currentSongIndex === -1 && audioEl.paused){
+          autoplayTried = true;
+          playIndex(randomIndex(-1));
+        }
       }, function(){});
     }
 
@@ -1179,6 +1344,8 @@
     setupTimeApart();
     initPhotoSync();
     setupPuzzle();
+    setupChess();
+    setupGamesHub();
     setupCalendar();
     setupColoring();
   }
@@ -1417,16 +1584,20 @@
             return '<div class="stat-pill"><div class="n num">'+s.n+'</div><div class="l">'+s.l+'</div></div>';
           }).join("");
         } else {
-          // the date has arrived/passed — remember it as the day you met
-          // (stays marked on the calendar) and clear the field so a new
-          // date can be set for next time
-          meetState.lastMetDate = meetState.nextDate;
-          meetState.nextDate = null;
-          persistMeetState();
-          syncInputFromState();
-          updateMeetCalendarMarks();
-          renderMeetCountdown();
-          return;
+          // the date has come and gone -- keep it exactly as set (don't
+          // auto-clear it). It only changes when she deliberately types a
+          // new date/time into the field and hits Save.
+          var since = diffParts(target, now);
+          el.innerHTML = "That day has come and gone 💗 — set a new date whenever you're ready";
+          var sinceStats = [
+            {n:since.y, l:"Years"},
+            {n:since.mo, l:"Months"},
+            {n:since.d, l:"Days"},
+            {n:pad2(since.h)+":"+pad2(since.mi)+":"+pad2(since.s), l:"Since then"}
+          ];
+          statsEl.innerHTML = sinceStats.map(function(s){
+            return '<div class="stat-pill"><div class="n num">'+s.n+'</div><div class="l">'+s.l+'</div></div>';
+          }).join("");
         }
       } else {
         el.textContent = "Tell me when we see each other next 💌";
@@ -2029,6 +2200,383 @@
       span.style.animationDelay = (Math.random()*0.7)+"s";
       wrap.appendChild(span);
     }
+  }
+
+  /* ============================================================
+     GAMES HUB (Puzzle + Chess live behind one "Games" tab; more games can
+     be added here later the same way -- give it a data-game id, a card in
+     #games-list, and a .game-view section)
+     ============================================================ */
+  function setupGamesHub(){
+    var hub = $("#games-hub");
+    if(!hub) return;
+    var views = $all(".game-view");
+    function showHub(){
+      views.forEach(function(v){ v.hidden = true; });
+      hub.hidden = false;
+    }
+    $all(".game-card").forEach(function(card){
+      card.addEventListener("click", function(){
+        hub.hidden = true;
+        views.forEach(function(v){ v.hidden = (v.id !== "game-view-" + card.dataset.game); });
+      });
+    });
+    $all(".game-back").forEach(function(btn){
+      btn.addEventListener("click", showHub);
+    });
+  }
+
+  /* ============================================================
+     CHESS
+     Pass-and-play on one device -- two of you take turns making moves on
+     the same board. Plain rules engine (legal moves, check, checkmate,
+     stalemate, castling, en passant, pawn promotion to queen) plus a tap
+     to select / tap to move UI. The board visually flips 180deg after
+     every move so it's always right-side-up for whoever's turn it is,
+     and each piece glyph rotates back so it's never upside down.
+     ============================================================ */
+  var CHESS_GLYPHS = {
+    wP:"♙", wN:"♘", wB:"♗", wR:"♖", wQ:"♕", wK:"♔",
+    bP:"♟", bN:"♞", bB:"♝", bR:"♜", bQ:"♛", bK:"♚"
+  };
+  var CHESS_KNIGHT_OFF = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+  var CHESS_KING_OFF = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+  var CHESS_ROOK_DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+  var CHESS_BISHOP_DIRS = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  var CHESS_SLIDE_DIRS = {
+    R: CHESS_ROOK_DIRS, B: CHESS_BISHOP_DIRS,
+    Q: CHESS_ROOK_DIRS.concat(CHESS_BISHOP_DIRS)
+  };
+
+  function chessInBounds(r,f){ return r>=0 && r<8 && f>=0 && f<8; }
+  function chessColorOf(p){ return p ? p[0] : null; }
+  function chessTypeOf(p){ return p ? p[1] : null; }
+  function chessSqName(idx){
+    var file = idx % 8, rank = Math.floor(idx/8);
+    return "abcdefgh"[file] + (rank+1);
+  }
+
+  function chessInitialBoard(){
+    var b = new Array(64).fill(null);
+    var back = ["R","N","B","Q","K","B","N","R"];
+    for(var f=0; f<8; f++){
+      b[0*8+f] = "w"+back[f];
+      b[1*8+f] = "wP";
+      b[6*8+f] = "bP";
+      b[7*8+f] = "b"+back[f];
+    }
+    return b;
+  }
+
+  function chessNewState(){
+    return {
+      board: chessInitialBoard(),
+      turn: "w",
+      castling: {wK:true, wQ:true, bK:true, bQ:true},
+      epTarget: null,
+      lastMove: null
+    };
+  }
+
+  function chessFindKing(board, color){
+    for(var i=0;i<64;i++){ if(board[i]===color+"K") return i; }
+    return -1;
+  }
+
+  function chessIsAttacked(board, idx, byColor){
+    var r = Math.floor(idx/8), f = idx%8, i;
+    for(i=0;i<CHESS_KNIGHT_OFF.length;i++){
+      var nr = r+CHESS_KNIGHT_OFF[i][0], nf = f+CHESS_KNIGHT_OFF[i][1];
+      if(chessInBounds(nr,nf) && board[nr*8+nf]===byColor+"N") return true;
+    }
+    for(i=0;i<CHESS_KING_OFF.length;i++){
+      var nr2 = r+CHESS_KING_OFF[i][0], nf2 = f+CHESS_KING_OFF[i][1];
+      if(chessInBounds(nr2,nf2) && board[nr2*8+nf2]===byColor+"K") return true;
+    }
+    var pr = byColor==="w" ? r-1 : r+1;
+    for(i=0;i<2;i++){
+      var pf = i===0 ? f-1 : f+1;
+      if(chessInBounds(pr,pf) && board[pr*8+pf]===byColor+"P") return true;
+    }
+    for(i=0;i<CHESS_ROOK_DIRS.length;i++){
+      var nr3=r+CHESS_ROOK_DIRS[i][0], nf3=f+CHESS_ROOK_DIRS[i][1];
+      while(chessInBounds(nr3,nf3)){
+        var pc = board[nr3*8+nf3];
+        if(pc){
+          if(chessColorOf(pc)===byColor && (chessTypeOf(pc)==="R"||chessTypeOf(pc)==="Q")) return true;
+          break;
+        }
+        nr3+=CHESS_ROOK_DIRS[i][0]; nf3+=CHESS_ROOK_DIRS[i][1];
+      }
+    }
+    for(i=0;i<CHESS_BISHOP_DIRS.length;i++){
+      var nr4=r+CHESS_BISHOP_DIRS[i][0], nf4=f+CHESS_BISHOP_DIRS[i][1];
+      while(chessInBounds(nr4,nf4)){
+        var pc2 = board[nr4*8+nf4];
+        if(pc2){
+          if(chessColorOf(pc2)===byColor && (chessTypeOf(pc2)==="B"||chessTypeOf(pc2)==="Q")) return true;
+          break;
+        }
+        nr4+=CHESS_BISHOP_DIRS[i][0]; nf4+=CHESS_BISHOP_DIRS[i][1];
+      }
+    }
+    return false;
+  }
+
+  function chessInCheck(board, color){
+    var ki = chessFindKing(board, color);
+    return ki>=0 && chessIsAttacked(board, ki, color==="w"?"b":"w");
+  }
+
+  function chessGenPseudoMoves(state, idx){
+    var board = state.board, p = board[idx];
+    if(!p) return [];
+    var color = chessColorOf(p), type = chessTypeOf(p);
+    var r = Math.floor(idx/8), f = idx%8;
+    var moves = [];
+    function addIfOk(nr, nf){
+      if(!chessInBounds(nr,nf)) return false;
+      var ni = nr*8+nf, target = board[ni];
+      if(target && chessColorOf(target)===color) return false;
+      moves.push({from:idx, to:ni, piece:p, captured: target||null});
+      return !target;
+    }
+    if(type==="N"){
+      CHESS_KNIGHT_OFF.forEach(function(o){ addIfOk(r+o[0], f+o[1]); });
+    } else if(type==="K"){
+      CHESS_KING_OFF.forEach(function(o){ addIfOk(r+o[0], f+o[1]); });
+    } else if(type==="P"){
+      var dir = color==="w" ? 1 : -1;
+      var startRank = color==="w" ? 1 : 6;
+      var promoRank = color==="w" ? 7 : 0;
+      var nr = r+dir;
+      if(chessInBounds(nr,f) && !board[nr*8+f]){
+        if(nr===promoRank) moves.push({from:idx,to:nr*8+f,piece:p,captured:null,promotion:"Q"});
+        else moves.push({from:idx,to:nr*8+f,piece:p,captured:null});
+        if(r===startRank && !board[(r+2*dir)*8+f]){
+          moves.push({from:idx,to:(r+2*dir)*8+f,piece:p,captured:null,doubleStep:true});
+        }
+      }
+      [f-1,f+1].forEach(function(nf){
+        if(!chessInBounds(nr,nf)) return;
+        var ni = nr*8+nf, target = board[ni];
+        if(target && chessColorOf(target)!==color){
+          if(nr===promoRank) moves.push({from:idx,to:ni,piece:p,captured:target,promotion:"Q"});
+          else moves.push({from:idx,to:ni,piece:p,captured:target});
+        } else if(!target && state.epTarget===ni){
+          moves.push({from:idx,to:ni,piece:p,captured:board[r*8+nf],isEp:true});
+        }
+      });
+    } else if(CHESS_SLIDE_DIRS[type]){
+      CHESS_SLIDE_DIRS[type].forEach(function(d){
+        var nr2=r+d[0], nf2=f+d[1];
+        while(addIfOk(nr2,nf2)){ nr2+=d[0]; nf2+=d[1]; }
+      });
+    }
+    return moves;
+  }
+
+  function chessApplyMove(state, move){
+    var ns = {
+      board: state.board.slice(),
+      turn: state.turn==="w" ? "b" : "w",
+      castling: Object.assign({}, state.castling),
+      epTarget: null,
+      lastMove: move
+    };
+    var p = move.piece, color = chessColorOf(p), type = chessTypeOf(p);
+    ns.board[move.from] = null;
+    if(move.isEp){
+      var capIdx = move.to + (color==="w" ? -8 : 8);
+      ns.board[capIdx] = null;
+    }
+    ns.board[move.to] = move.promotion ? (color+move.promotion) : p;
+    if(move.isCastle){
+      if(move.isCastle==="K"){
+        var rf = color==="w"?7:63, rt = color==="w"?5:61;
+        ns.board[rt] = ns.board[rf]; ns.board[rf] = null;
+      } else {
+        var rf2 = color==="w"?0:56, rt2 = color==="w"?3:59;
+        ns.board[rt2] = ns.board[rf2]; ns.board[rf2] = null;
+      }
+    }
+    if(type==="K"){ ns.castling[color+"K"]=false; ns.castling[color+"Q"]=false; }
+    if(type==="R"){
+      if(move.from === (color==="w"?0:56)) ns.castling[color+"Q"]=false;
+      if(move.from === (color==="w"?7:63)) ns.castling[color+"K"]=false;
+    }
+    if(move.to===0) ns.castling.wQ=false;
+    if(move.to===7) ns.castling.wK=false;
+    if(move.to===56) ns.castling.bQ=false;
+    if(move.to===63) ns.castling.bK=false;
+    if(move.doubleStep){ ns.epTarget = move.from + (color==="w"?8:-8); }
+    return ns;
+  }
+
+  function chessLegalMovesFrom(state, idx){
+    var p = state.board[idx];
+    if(!p || chessColorOf(p)!==state.turn) return [];
+    var pseudo = chessGenPseudoMoves(state, idx);
+    if(chessTypeOf(p)==="K"){
+      var color = chessColorOf(p);
+      var homeRank = color==="w"?0:7;
+      var kingHome = homeRank*8+4;
+      var enemy = color==="w"?"b":"w";
+      if(idx===kingHome && !chessInCheck(state.board, color)){
+        if(state.castling[color+"K"] && !state.board[homeRank*8+5] && !state.board[homeRank*8+6] && state.board[homeRank*8+7]===color+"R"){
+          if(!chessIsAttacked(state.board, homeRank*8+5, enemy) && !chessIsAttacked(state.board, homeRank*8+6, enemy)){
+            pseudo.push({from:idx, to:homeRank*8+6, piece:p, captured:null, isCastle:"K"});
+          }
+        }
+        if(state.castling[color+"Q"] && !state.board[homeRank*8+1] && !state.board[homeRank*8+2] && !state.board[homeRank*8+3] && state.board[homeRank*8+0]===color+"R"){
+          if(!chessIsAttacked(state.board, homeRank*8+3, enemy) && !chessIsAttacked(state.board, homeRank*8+2, enemy)){
+            pseudo.push({from:idx, to:homeRank*8+2, piece:p, captured:null, isCastle:"Q"});
+          }
+        }
+      }
+    }
+    return pseudo.filter(function(mv){
+      var ns = chessApplyMove(state, mv);
+      return !chessInCheck(ns.board, chessColorOf(p));
+    });
+  }
+
+  function chessAllLegalMoves(state){
+    var moves = [];
+    for(var i=0;i<64;i++){
+      if(state.board[i] && chessColorOf(state.board[i])===state.turn){
+        moves = moves.concat(chessLegalMovesFrom(state, i));
+      }
+    }
+    return moves;
+  }
+
+  function renderChessBoard(state, boardEl, selected, legalTargets){
+    boardEl.innerHTML = "";
+    var flip = state.turn === "b";
+    boardEl.classList.toggle("flipped", flip);
+    var inCheckNow = chessInCheck(state.board, state.turn);
+    var kingIdx = inCheckNow ? chessFindKing(state.board, state.turn) : -1;
+    for(var rank=7; rank>=0; rank--){
+      for(var file=0; file<8; file++){
+        var idx = rank*8+file;
+        var sq = document.createElement("button");
+        sq.type = "button";
+        sq.className = "chess-sq " + (((rank+file)%2===1) ? "light" : "dark");
+        sq.dataset.idx = idx;
+        var p = state.board[idx];
+        if(p){
+          sq.classList.add(chessColorOf(p)==="w" ? "piece-w" : "piece-b");
+          var glyph = document.createElement("span");
+          glyph.className = "piece";
+          glyph.textContent = CHESS_GLYPHS[p];
+          sq.appendChild(glyph);
+        }
+        if(selected===idx) sq.classList.add("selected");
+        if(state.lastMove && (state.lastMove.from===idx || state.lastMove.to===idx)) sq.classList.add("last-move");
+        if(legalTargets && legalTargets.indexOf(idx)>=0){
+          sq.classList.add(state.board[idx] ? "legal-capture" : "legal-move");
+        }
+        if(idx===kingIdx) sq.classList.add("in-check");
+        boardEl.appendChild(sq);
+      }
+    }
+  }
+
+  function setupChess(){
+    var boardEl = $("#chess-board");
+    var statusEl = $("#chess-status");
+    var historyEl = $("#chess-history");
+    var undoBtn = $("#chess-undo");
+    var newBtn = $("#chess-new");
+    if(!boardEl) return;
+
+    var state = chessNewState();
+    var selected = null;
+    var pastStates = [];
+    var moveLog = [];
+
+    function statusText(){
+      var turnName = state.turn==="w" ? "White" : "Black";
+      var legal = chessAllLegalMoves(state);
+      if(legal.length===0){
+        if(chessInCheck(state.board, state.turn)){
+          return "Checkmate -- " + (state.turn==="w"?"Black":"White") + " wins! \u{1F389}";
+        }
+        return "Stalemate -- it's a draw.";
+      }
+      if(chessInCheck(state.board, state.turn)) return turnName + " to move -- check!";
+      return turnName + " to move";
+    }
+
+    function render(){
+      var legalTargets = selected!=null ? chessLegalMovesFrom(state, selected).map(function(m){return m.to;}) : [];
+      renderChessBoard(state, boardEl, selected, legalTargets);
+      statusEl.textContent = statusText();
+      undoBtn.disabled = pastStates.length===0;
+      historyEl.textContent = moveLog.join("  ");
+    }
+
+    function moveNotation(mv, resultSuffix){
+      var s;
+      if(mv.isCastle==="K") s = "O-O";
+      else if(mv.isCastle==="Q") s = "O-O-O";
+      else {
+        s = chessSqName(mv.from) + (mv.captured ? "x" : "-") + chessSqName(mv.to);
+        if(mv.promotion) s += "=" + mv.promotion;
+      }
+      return s + (resultSuffix||"");
+    }
+
+    function doMove(mv){
+      pastStates.push(state);
+      var ns = chessApplyMove(state, mv);
+      var suffix = "";
+      if(chessInCheck(ns.board, ns.turn)){
+        suffix = chessAllLegalMoves(ns).length>0 ? "+" : "#";
+      }
+      moveLog.push(moveNotation(mv, suffix));
+      state = ns;
+      selected = null;
+      render();
+    }
+
+    boardEl.addEventListener("click", function(e){
+      var sq = e.target.closest(".chess-sq");
+      if(!sq) return;
+      var idx = parseInt(sq.dataset.idx, 10);
+      var p = state.board[idx];
+      if(selected!=null){
+        var moves = chessLegalMovesFrom(state, selected);
+        var mv = moves.filter(function(m){ return m.to===idx; })[0];
+        if(mv){ doMove(mv); return; }
+      }
+      if(p && chessColorOf(p)===state.turn){
+        selected = (selected===idx) ? null : idx;
+        render();
+      } else {
+        selected = null;
+        render();
+      }
+    });
+
+    newBtn.addEventListener("click", function(){
+      state = chessNewState();
+      selected = null;
+      pastStates = [];
+      moveLog = [];
+      render();
+    });
+
+    undoBtn.addEventListener("click", function(){
+      if(!pastStates.length) return;
+      state = pastStates.pop();
+      moveLog.pop();
+      selected = null;
+      render();
+    });
+
+    render();
   }
 
   function setupPuzzle(){
