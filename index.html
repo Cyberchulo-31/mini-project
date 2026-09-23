@@ -319,8 +319,12 @@
   #photo-modal img, #photo-modal video{max-width:100%;max-height:58vh;border-radius:14px;display:block;margin:0 auto;background:#000;}
 
   /* Memory transitions: each time the slideshow (or Prev/Next) moves to a
-     new photo, one of a few random effects plays -- a heart-shaped iris
-     open/close, a plain cross-fade, or a soft zoom fade. */
+     new photo, a heart-shaped iris opens around the incoming photo (and
+     closes around the outgoing one). The mask is dropped once the open
+     finishes (see playEnterTransition), so the photo itself is always
+     shown full-frame and unmasked in between transitions. The plain
+     fade/zoom styles below are kept but unused, in case variety is wanted
+     again later. */
   @keyframes heartIn{
     from{ -webkit-mask-size:0% 0%; mask-size:0% 0%; opacity:.5; }
     to{ -webkit-mask-size:280% 280%; mask-size:280% 280%; opacity:1; }
@@ -404,9 +408,11 @@
   }
 
   /* ---------- Chess ---------- */
-  /* pass-and-play on one device: the board rotates 180deg after each move so
-     it's always right-side-up for whoever's turn it is, and each piece glyph
-     rotates back so it never looks upside down */
+  /* real two-device game, synced through Firebase: each of you only ever
+     sees your own pieces at the bottom (fixed for the whole game, based on
+     which color you were dealt -- it never flips mid-game), and you can
+     only move on your own turn. .locked dims the board when it's not your
+     move yet, or a new game is waiting on both of you to be online. */
   #chess-status{
     text-align:center;font-weight:800;color:var(--accent-deep);
     margin:4px 0 12px;min-height:1.3em;
@@ -418,6 +424,7 @@
     box-shadow:var(--shadow);transition:transform .5s ease;
   }
   #chess-board.flipped{transform:rotate(180deg);}
+  #chess-board.locked{opacity:.55;pointer-events:none;}
   .chess-sq{
     position:relative;display:flex;align-items:center;justify-content:center;
     border:none;padding:0;margin:0;cursor:pointer;
@@ -707,7 +714,8 @@
       <div class="card game-view" id="game-view-chess" hidden>
         <button class="btn-ghost game-back" type="button" data-back>‹ Games</button>
         <p class="eyebrow">Checkmate me, princess</p>
-        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;">Take turns making moves on the same phone -- the board flips around after every move so it's always right-side-up for whoever's turn it is.</p>
+        <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:4px;">A real game between the two of you -- each on your own device. You'll always see your own pieces at the bottom, and a new game can only start once you're both online at the same time.</p>
+        <p id="chess-online" class="muted" style="font-size:.78rem;margin-bottom:14px;"></p>
         <div id="chess-status"></div>
         <div id="chess-board"></div>
         <div id="chess-controls">
@@ -758,7 +766,7 @@
         <p class="eyebrow">Movie night</p>
         <h2 style="font-size:1.5rem;margin-top:8px;">Pick anything you're in the mood for 🎬</h2>
         <p id="watch-line"></p>
-        <a class="netflix-btn" href="https://www.netflix.com/browse" target="_blank" rel="noopener">Open Netflix</a>
+        <a class="netflix-btn" href="https://streamex.ws/free-movies" target="_blank" rel="noopener">Open Movies</a>
       </div>
     </section>
   </main>
@@ -1884,11 +1892,11 @@
     renderModalItem();
   }
 
-  // A few different looks for moving between memories — picked at random
-  // each time, so the slideshow doesn't feel repetitive. "heart" uses a
-  // heart-shaped mask that opens/closes around the photo; the others are
-  // simpler fades/zooms for variety.
-  var TRANSITION_STYLES = ["heart", "heart", "fade", "zoom"]; // heart shows up a bit more often
+  // Moving between memories always uses the heart-shaped iris effect --
+  // it opens/closes around the photo as it changes. Once it's done playing,
+  // the mask is removed entirely, so the photo you're actually sitting and
+  // looking at is always the plain, full-frame original -- never left
+  // cropped into a heart shape.
   var modalHasContent = false; // false until the very first photo has been painted
 
   function prefersReducedMotion(){
@@ -1897,7 +1905,7 @@
   }
 
   function pickTransitionStyle(){
-    return TRANSITION_STYLES[Math.floor(Math.random() * TRANSITION_STYLES.length)];
+    return "heart";
   }
 
   function getVisibleModalEl(){
@@ -1911,6 +1919,18 @@
     if(prefersReducedMotion()) return;
     void el.offsetWidth; // restart the animation even if the class name repeats
     el.classList.add("enter-" + style);
+    // Once the heart finishes opening, drop the mask class entirely -- so
+    // the photo settles back to its normal, unmasked self rather than
+    // sitting there cropped into a heart shape until the next transition.
+    var done = false;
+    function finish(){
+      if(done) return;
+      done = true;
+      el.removeEventListener("animationend", finish);
+      el.classList.remove("enter-" + style);
+    }
+    el.addEventListener("animationend", finish);
+    setTimeout(finish, 650); // safety net in case animationend doesn't fire
   }
 
   // Plays the "out" animation on the currently-visible element, then calls
@@ -2451,10 +2471,9 @@
     return moves;
   }
 
-  function renderChessBoard(state, boardEl, selected, legalTargets){
+  function renderChessBoard(state, boardEl, selected, legalTargets, flip){
     boardEl.innerHTML = "";
-    var flip = state.turn === "b";
-    boardEl.classList.toggle("flipped", flip);
+    boardEl.classList.toggle("flipped", !!flip);
     var inCheckNow = chessInCheck(state.board, state.turn);
     var kingIdx = inCheckNow ? chessFindKing(state.board, state.turn) : -1;
     for(var rank=7; rank>=0; rank--){
@@ -2483,65 +2502,176 @@
     }
   }
 
+  /* ---------- Presence: "is she online right now too?" ----------
+     Reuses the same "Adding as: Nosa / [nickname]" identity already used
+     to tag photo uploads (WHOAMI_KEY) -- so this needs no new setup from
+     either of you. Each device pings its own name every few seconds while
+     the site is open; the other device's most recent ping tells you
+     whether they're currently around. */
+  var PRESENCE_HEARTBEAT_MS = 10000;
+  var PRESENCE_STALE_MS = 25000; // no ping in this long -> treat as offline
+  var presenceDb = null;
+  var presenceCache = {}; // name -> last-seen timestamp
+  var presenceListeners = [];
+
+  function myIdentityName(){
+    var v = safeGet(WHOAMI_KEY);
+    return v || "Nosa";
+  }
+  function partnerIdentityName(){
+    var mine = myIdentityName();
+    return mine === "Nosa" ? (NICKNAMES[0] || "Her") : "Nosa";
+  }
+  function isPartnerOnline(){
+    var seen = presenceCache[partnerIdentityName()];
+    return !!seen && (Date.now() - seen) < PRESENCE_STALE_MS;
+  }
+  function onPresenceChange(fn){ presenceListeners.push(fn); }
+  function firePresenceChange(){ presenceListeners.forEach(function(fn){ fn(); }); }
+
+  var presenceSetUp = false;
+  function setupPresence(){
+    if(presenceSetUp) return;
+    presenceSetUp = true;
+    if(!initFirebaseOnce()) return;
+    presenceDb = db;
+    var myName = myIdentityName();
+    function beat(){
+      presenceDb.collection("presence").doc(myName).set({lastSeen: Date.now()}, {merge:true}).catch(function(){});
+    }
+    beat();
+    setInterval(beat, PRESENCE_HEARTBEAT_MS);
+    presenceDb.collection("presence").onSnapshot(function(snap){
+      var next = {};
+      snap.forEach(function(doc){
+        var d = doc.data();
+        next[doc.id] = d && d.lastSeen ? d.lastSeen : 0;
+      });
+      presenceCache = next;
+      firePresenceChange();
+    }, function(){});
+    // "online" depends on the current time, not just on new data arriving,
+    // so re-check (and re-render) every few seconds even if nothing changed.
+    setInterval(firePresenceChange, 5000);
+  }
+
+  function moveNotation(mv, resultSuffix){
+    var s;
+    if(mv.isCastle==="K") s = "O-O";
+    else if(mv.isCastle==="Q") s = "O-O-O";
+    else {
+      s = chessSqName(mv.from) + (mv.captured ? "x" : "-") + chessSqName(mv.to);
+      if(mv.promotion) s += "=" + mv.promotion;
+    }
+    return s + (resultSuffix||"");
+  }
+
   function setupChess(){
     var boardEl = $("#chess-board");
     var statusEl = $("#chess-status");
+    var onlineEl = $("#chess-online");
     var historyEl = $("#chess-history");
     var undoBtn = $("#chess-undo");
     var newBtn = $("#chess-new");
     if(!boardEl) return;
 
+    setupPresence();
+
+    var myName = myIdentityName();
+    var chessDb = null;
+    var gameDoc = null; // {moves, players:{white,black}} as last received from Firestore
     var state = chessNewState();
-    var selected = null;
     var pastStates = [];
     var moveLog = [];
+    var selected = null;
+    var myColor = null; // "w" | "b" | null (no game yet / not one of the two players)
+
+    // The move list in Firestore is the one source of truth for the whole
+    // game -- everything else (board position, whose turn, check/mate,
+    // history text) is replayed from it fresh every time it changes, the
+    // same way the old pass-and-play version kept a stack of past states.
+    function rebuildFromMoves(moves, players){
+      var s = chessNewState();
+      var log = [];
+      var stack = [];
+      (moves||[]).forEach(function(mv){
+        var legal = chessLegalMovesFrom(s, mv.from);
+        var full = legal.filter(function(m){
+          return m.to===mv.to && ((!mv.promotion && !m.promotion) || m.promotion===mv.promotion);
+        })[0];
+        if(!full) return; // shouldn't happen, but never crash the board over it
+        stack.push(s);
+        var ns = chessApplyMove(s, full);
+        var suffix = "";
+        if(chessInCheck(ns.board, ns.turn)){
+          suffix = chessAllLegalMoves(ns).length>0 ? "+" : "#";
+        }
+        log.push(moveNotation(full, suffix));
+        s = ns;
+      });
+      state = s;
+      moveLog = log;
+      pastStates = stack;
+      myColor = (players && players.white===myName) ? "w" : ((players && players.black===myName) ? "b" : null);
+    }
+
+    function bothReady(){
+      return !!(gameDoc && gameDoc.players && gameDoc.players.white && gameDoc.players.black);
+    }
 
     function statusText(){
-      var turnName = state.turn==="w" ? "White" : "Black";
+      if(!gameDoc) return "Loading…";
+      if(!bothReady()){
+        return isPartnerOnline() ? "Tap “New Game” to start playing together \u{1F49D}" :
+          "Waiting for " + partnerIdentityName() + " to be online too…";
+      }
       var legal = chessAllLegalMoves(state);
+      var mine = myColor === state.turn;
       if(legal.length===0){
         if(chessInCheck(state.board, state.turn)){
-          return "Checkmate -- " + (state.turn==="w"?"Black":"White") + " wins! \u{1F389}";
+          var winnerName = state.turn==="w" ? gameDoc.players.black : gameDoc.players.white;
+          return "Checkmate -- " + winnerName + " wins! \u{1F389}";
         }
         return "Stalemate -- it's a draw.";
       }
-      if(chessInCheck(state.board, state.turn)) return turnName + " to move -- check!";
-      return turnName + " to move";
+      var check = chessInCheck(state.board, state.turn) ? " -- check!" : "";
+      return (mine ? "Your move" : (state.turn==="w" ? gameDoc.players.white : gameDoc.players.black) + "'s move") + check;
     }
 
     function render(){
-      var legalTargets = selected!=null ? chessLegalMovesFrom(state, selected).map(function(m){return m.to;}) : [];
-      renderChessBoard(state, boardEl, selected, legalTargets);
+      var canAct = bothReady() && myColor!=null && myColor===state.turn;
+      var legalTargets = (selected!=null && canAct) ? chessLegalMovesFrom(state, selected).map(function(m){return m.to;}) : [];
+      renderChessBoard(state, boardEl, selected, legalTargets, myColor==="b");
+      boardEl.classList.toggle("locked", !canAct);
       statusEl.textContent = statusText();
-      undoBtn.disabled = pastStates.length===0;
+      onlineEl.textContent = isPartnerOnline() ? (partnerIdentityName() + " is online \u{1F7E2}") : (partnerIdentityName() + " isn't online right now");
+      undoBtn.disabled = !bothReady() || moveLog.length===0;
+      newBtn.disabled = !isPartnerOnline();
+      newBtn.textContent = bothReady() ? "\u{1F504} New Game" : "\u{1F504} Start Game";
       historyEl.textContent = moveLog.join("  ");
     }
 
-    function moveNotation(mv, resultSuffix){
-      var s;
-      if(mv.isCastle==="K") s = "O-O";
-      else if(mv.isCastle==="Q") s = "O-O-O";
-      else {
-        s = chessSqName(mv.from) + (mv.captured ? "x" : "-") + chessSqName(mv.to);
-        if(mv.promotion) s += "=" + mv.promotion;
-      }
-      return s + (resultSuffix||"");
+    function persistMoves(newMoves){
+      if(!chessDb || !gameDoc) return;
+      chessDb.collection("chessGame").doc("shared").set({
+        moves: newMoves,
+        players: gameDoc.players,
+        updatedAt: Date.now()
+      }, {merge:true}).catch(function(){});
     }
 
     function doMove(mv){
-      pastStates.push(state);
-      var ns = chessApplyMove(state, mv);
-      var suffix = "";
-      if(chessInCheck(ns.board, ns.turn)){
-        suffix = chessAllLegalMoves(ns).length>0 ? "+" : "#";
-      }
-      moveLog.push(moveNotation(mv, suffix));
-      state = ns;
+      if(!bothReady() || myColor!==state.turn) return;
+      var newMoves = (gameDoc.moves||[]).concat([{from:mv.from, to:mv.to, promotion:mv.promotion||null}]);
       selected = null;
+      gameDoc = Object.assign({}, gameDoc, {moves:newMoves});
+      rebuildFromMoves(newMoves, gameDoc.players); // apply locally right away, don't wait on the round trip
       render();
+      persistMoves(newMoves);
     }
 
     boardEl.addEventListener("click", function(e){
+      if(!bothReady() || myColor==null || myColor!==state.turn) return;
       var sq = e.target.closest(".chess-sq");
       if(!sq) return;
       var idx = parseInt(sq.dataset.idx, 10);
@@ -2561,20 +2691,41 @@
     });
 
     newBtn.addEventListener("click", function(){
-      state = chessNewState();
+      if(!chessDb || !isPartnerOnline()) return;
+      var partner = partnerIdentityName();
+      var players = Math.random() < 0.5 ? {white: myName, black: partner} : {white: partner, black: myName};
+      var fresh = {moves: [], players: players, updatedAt: Date.now()};
       selected = null;
-      pastStates = [];
-      moveLog = [];
+      gameDoc = fresh;
+      rebuildFromMoves([], players);
       render();
+      chessDb.collection("chessGame").doc("shared").set(fresh).catch(function(){});
     });
 
     undoBtn.addEventListener("click", function(){
-      if(!pastStates.length) return;
-      state = pastStates.pop();
-      moveLog.pop();
+      if(!gameDoc || !gameDoc.moves || !gameDoc.moves.length) return;
+      var newMoves = gameDoc.moves.slice(0, -1);
       selected = null;
+      gameDoc = Object.assign({}, gameDoc, {moves:newMoves});
+      rebuildFromMoves(newMoves, gameDoc.players);
       render();
+      persistMoves(newMoves);
     });
+
+    onPresenceChange(render);
+
+    if(initFirebaseOnce()){
+      chessDb = db;
+      chessDb.collection("chessGame").doc("shared").onSnapshot(function(doc){
+        var d = doc.exists ? doc.data() : null;
+        gameDoc = d || {moves: [], players: {white:null, black:null}, updatedAt: 0};
+        selected = null;
+        rebuildFromMoves(gameDoc.moves, gameDoc.players);
+        render();
+      }, function(){});
+    } else {
+      statusEl.textContent = "Game sharing isn't set up yet.";
+    }
 
     render();
   }
