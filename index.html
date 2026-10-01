@@ -516,7 +516,6 @@
     width:30px;height:30px;border-radius:50%;border:2px solid var(--border);cursor:pointer;
   }
   .swatch.active{outline:2px solid var(--accent-deep);outline-offset:2px;}
-  #brush-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}
   #color-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
   #color-save-status{text-align:center;font-size:.78rem;color:var(--muted);min-height:1.2em;margin-top:8px;}
 
@@ -749,7 +748,7 @@
           <canvas id="lineart-canvas" width="420" height="420"></canvas>
         </div>
         <div id="palette"></div>
-        <div id="brush-row"></div>
+        <p class="muted" style="font-size:.78rem;text-align:center;margin:2px 0 10px;">Tap a shape to fill it with the selected color ✨</p>
         <div id="color-controls">
           <button class="btn-ghost" id="color-shuffle" type="button">🔀 Shuffle</button>
           <button class="btn-ghost" id="color-choose" type="button">🖼 Choose</button>
@@ -3202,11 +3201,12 @@
 
     var pages = buildColoringPages();
     var currentColor = COLOR_PALETTE[0];
-    var currentBrush = 14;
     var currentPage = null;
     var dirty = false;
     var autosaveTimer = null;
     var loadToken = 0; // guards a slow async load from landing after a later page switch
+    var lineArtToken = 0; // guards a slow image load from drawing over a page switched to since
+    var wallMask = null; // Uint8Array, 1 = ink pixel (fill stops here), built fresh per page
 
     var pageNameEl = $("#color-page-name");
     var statusEl = $("#color-save-status");
@@ -3236,15 +3236,30 @@
       autosaveTimer = setTimeout(function(){ flushSave(); showStatus("Saved 💾"); }, 700);
     }
 
+    function buildWallMask(){
+      var data = lctx.getImageData(0,0,W,H).data;
+      var mask = new Uint8Array(W*H);
+      for(var i=0,p=0;i<data.length;i+=4,p++){
+        mask[p] = data[i+3] > 60 ? 1 : 0; // anything with real ink opacity is a wall
+      }
+      wallMask = mask;
+    }
+
     function drawPageLineArt(page, cb){
+      var myToken = ++lineArtToken;
       lctx.clearRect(0,0,W,H);
+      function finish(){
+        if(myToken !== lineArtToken) return; // a newer page switch already took over
+        buildWallMask();
+        if(cb) cb();
+      }
       if(page.type === "vector"){
         COLOR_VECTOR_TEMPLATES[page.id](lctx, W, H);
-        if(cb) cb();
+        finish();
       } else {
         var img = new Image();
-        img.onload = function(){ drawContain(lctx, img, W, H); if(cb) cb(); };
-        img.onerror = function(){ if(cb) cb(); };
+        img.onload = function(){ drawContain(lctx, img, W, H); finish(); };
+        img.onerror = function(){ finish(); };
         img.src = page.src;
       }
     }
@@ -3288,14 +3303,6 @@
         sw.classList.add("active");
         currentColor = sw.dataset.color;
       });
-    });
-
-    $("#brush-row").innerHTML = [8,14,24].map(function(sz){
-      return '<button class="btn-ghost" data-size="'+sz+'" type="button">'+
-        (sz===8?"Fine":sz===14?"Medium":"Bold")+'</button>';
-    }).join("");
-    $all("#brush-row button").forEach(function(b){
-      b.addEventListener("click", function(){ currentBrush = parseInt(b.dataset.size,10); });
     });
 
     // ---- "Choose a drawing" picker ----
@@ -3343,35 +3350,50 @@
       showStatus("Cleared");
     });
 
-    // ---- drawing ----
-    var painting = false;
+    // ---- tap-to-fill ----
     function posFromEvent(e){
       var rect = paintCanvas.getBoundingClientRect();
       var scaleX = W/rect.width;
       var scaleY = H/rect.height;
       return { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
     }
-    function paintAt(x,y){
-      pctx.beginPath();
-      pctx.arc(x,y,currentBrush,0,Math.PI*2);
-      pctx.fillStyle = currentColor;
-      pctx.fill();
+    function hexToRgb(hex){
+      hex = hex.replace("#","");
+      return [parseInt(hex.substr(0,2),16), parseInt(hex.substr(2,2),16), parseInt(hex.substr(4,2),16)];
+    }
+    // Classic paint-bucket flood fill: fills the whole enclosed area under the
+    // tap with the current color, stopping at any ink pixel from the line art
+    // (wallMask). Tapping directly on a line is a no-op.
+    function floodFillAt(x,y,colorHex){
+      x = Math.floor(x); y = Math.floor(y);
+      if(x<0||y<0||x>=W||y>=H) return;
+      if(!wallMask || wallMask[y*W+x]) return;
+
+      var imgData = pctx.getImageData(0,0,W,H);
+      var data = imgData.data;
+      var rgb = hexToRgb(colorHex);
+      var visited = new Uint8Array(W*H);
+      var stack = [y*W+x];
+      visited[y*W+x] = 1;
+
+      while(stack.length){
+        var p = stack.pop();
+        var px = p % W, py = (p - px) / W;
+        var di = p*4;
+        data[di] = rgb[0]; data[di+1] = rgb[1]; data[di+2] = rgb[2]; data[di+3] = 255;
+
+        if(px > 0){ var n = p-1; if(!visited[n] && !wallMask[n]){ visited[n]=1; stack.push(n); } }
+        if(px < W-1){ var n = p+1; if(!visited[n] && !wallMask[n]){ visited[n]=1; stack.push(n); } }
+        if(py > 0){ var n = p-W; if(!visited[n] && !wallMask[n]){ visited[n]=1; stack.push(n); } }
+        if(py < H-1){ var n = p+W; if(!visited[n] && !wallMask[n]){ visited[n]=1; stack.push(n); } }
+      }
+
+      pctx.putImageData(imgData, 0, 0);
     }
     paintCanvas.addEventListener("pointerdown", function(e){
-      painting = true;
-      paintCanvas.setPointerCapture(e.pointerId);
       var pos = posFromEvent(e);
-      paintAt(pos.x,pos.y);
+      floodFillAt(pos.x, pos.y, currentColor);
       scheduleAutosave();
-    });
-    paintCanvas.addEventListener("pointermove", function(e){
-      if(!painting) return;
-      var pos = posFromEvent(e);
-      paintAt(pos.x,pos.y);
-      scheduleAutosave();
-    });
-    ["pointerup","pointerleave","pointercancel"].forEach(function(ev){
-      paintCanvas.addEventListener(ev, function(){ painting = false; });
     });
 
     switchToPage(dailyDefaultPage(), { skipFlush:true });
