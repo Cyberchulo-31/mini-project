@@ -540,6 +540,7 @@
   }
   #picker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
   .picker-item{
+    position:relative;
     border:2px solid var(--border);border-radius:12px;background:var(--surface-2);cursor:pointer;
     padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px;
   }
@@ -550,6 +551,25 @@
     align-items:center;justify-content:center;font-size:1.8rem;
   }
   .picker-item .picker-name{font-size:.72rem;color:var(--muted);font-weight:700;}
+  .progress-badge{
+    position:absolute;top:4px;right:4px;background:#fff;border-radius:999px;
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+    font-size:.78rem;box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+
+  /* ---------- Coloring: continue-or-fresh prompt ---------- */
+  #continue-prompt{
+    position:fixed;inset:0;background:rgba(30,10,18,.72);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:65;
+  }
+  #continue-prompt.show{display:flex;}
+  .continue-box{
+    background:var(--surface);border-radius:20px;padding:22px;max-width:min(90vw,360px);
+    text-align:center;
+  }
+  #continue-prompt-title{font-weight:800;color:var(--accent-deep);margin:0 0 6px;}
+  #continue-prompt-sub{font-size:.82rem;color:var(--muted);margin:0 0 16px;}
+  .continue-actions{display:flex;flex-direction:column;gap:10px;}
 
   /* ---------- Watch ---------- */
   #watch-card{text-align:center;}
@@ -836,6 +856,18 @@
       <button id="picker-close" type="button" aria-label="Close">✕</button>
     </div>
     <div id="picker-grid"></div>
+  </div>
+</div>
+
+<div id="continue-prompt" hidden>
+  <div class="continue-box">
+    <p id="continue-prompt-title">Continue this drawing?</p>
+    <p id="continue-prompt-sub">You've already started coloring this one.</p>
+    <div class="continue-actions">
+      <button class="btn-primary" id="continue-prompt-continue" type="button">🎨 Continue where I left off</button>
+      <button class="btn-ghost" id="continue-prompt-fresh" type="button">🆕 Start fresh</button>
+      <button class="btn-ghost" id="continue-prompt-cancel" type="button">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -3192,6 +3224,13 @@
     }
   }
 
+  function deleteColoringProgress(id){
+    if(firebaseReady && db){
+      db.collection("coloring").doc(id).delete().catch(function(){});
+    }
+    try { localStorage.removeItem(coloringLocalKey(id)); } catch(e){}
+  }
+
   function setupColoring(){
     var lineCanvas = $("#lineart-canvas");
     var paintCanvas = $("#paint-canvas");
@@ -3280,13 +3319,38 @@
       clearPaintCanvas();
       drawPageLineArt(page);
       var myToken = ++loadToken;
-      loadColoringProgress(page.id, function(dataUrl){
-        if(myToken !== loadToken || !dataUrl) return; // a newer switch already happened, or nothing saved yet
-        var img = new Image();
-        img.onload = function(){ if(myToken === loadToken) pctx.drawImage(img, 0, 0, W, H); };
-        img.src = dataUrl;
-      });
+      if(!opts.startFresh){
+        loadColoringProgress(page.id, function(dataUrl){
+          if(myToken !== loadToken || !dataUrl) return; // a newer switch already happened, or nothing saved yet
+          var img = new Image();
+          img.onload = function(){ if(myToken === loadToken) pctx.drawImage(img, 0, 0, W, H); };
+          img.src = dataUrl;
+        });
+      }
       highlightPicker();
+    }
+
+    // Checks which pages already have saved progress, for the little "in
+    // progress" badge in the picker. Firestore gives us the whole collection
+    // in one query; the localStorage fallback just checks each page in turn.
+    function loadAllProgressIds(cb){
+      if(firebaseReady && db){
+        db.collection("coloring").get().then(function(snap){
+          var ids = {};
+          snap.forEach(function(doc){
+            var d = doc.data();
+            if(d && d.dataUrl) ids[doc.id] = true;
+          });
+          cb(ids);
+        }).catch(function(){ cb(localProgressIds()); });
+      } else {
+        cb(localProgressIds());
+      }
+    }
+    function localProgressIds(){
+      var ids = {};
+      pages.forEach(function(p){ if(safeGet(coloringLocalKey(p.id))) ids[p.id] = true; });
+      return ids;
     }
 
     function dailyDefaultPage(){
@@ -3316,20 +3380,72 @@
     $all(".picker-item", pickerGrid).forEach(function(btn){
       btn.addEventListener("click", function(){
         var page = pages.filter(function(p){ return p.id === btn.dataset.pageId; })[0];
-        if(page) switchToPage(page);
+        if(!page) return;
         pickerOverlay.classList.remove("show");
         pickerOverlay.hidden = true;
+        if(btn.classList.contains("has-progress")){
+          openContinuePrompt(page);
+        } else {
+          switchToPage(page);
+        }
       });
     });
 
     $("#color-choose").addEventListener("click", function(){
       pickerOverlay.hidden = false;
       pickerOverlay.classList.add("show");
+      refreshProgressBadges();
     });
     $("#picker-close").addEventListener("click", function(){
       pickerOverlay.classList.remove("show");
       pickerOverlay.hidden = true;
     });
+
+    function refreshProgressBadges(){
+      loadAllProgressIds(function(ids){
+        $all(".picker-item", pickerGrid).forEach(function(btn){
+          var has = !!ids[btn.dataset.pageId];
+          btn.classList.toggle("has-progress", has);
+          var badge = btn.querySelector(".progress-badge");
+          if(has && !badge){
+            badge = document.createElement("span");
+            badge.className = "progress-badge";
+            badge.textContent = "🎨";
+            btn.appendChild(badge);
+          } else if(!has && badge){
+            badge.remove();
+          }
+        });
+      });
+    }
+
+    // ---- continue-or-fresh prompt ----
+    var continuePrompt = $("#continue-prompt");
+    var continuePromptPage = null;
+    function openContinuePrompt(page){
+      continuePromptPage = page;
+      $("#continue-prompt-title").textContent = "Continue \"" + (page.name || "this drawing") + "\"?";
+      continuePrompt.hidden = false;
+      continuePrompt.classList.add("show");
+    }
+    function closeContinuePrompt(){
+      continuePrompt.classList.remove("show");
+      continuePrompt.hidden = true;
+      continuePromptPage = null;
+    }
+    $("#continue-prompt-continue").addEventListener("click", function(){
+      var page = continuePromptPage;
+      closeContinuePrompt();
+      if(page) switchToPage(page);
+    });
+    $("#continue-prompt-fresh").addEventListener("click", function(){
+      var page = continuePromptPage;
+      closeContinuePrompt();
+      if(!page) return;
+      deleteColoringProgress(page.id);
+      switchToPage(page, { startFresh:true });
+    });
+    $("#continue-prompt-cancel").addEventListener("click", closeContinuePrompt);
 
     $("#color-shuffle").addEventListener("click", function(){
       var others = pages.filter(function(p){ return !currentPage || p.id !== currentPage.id; });
