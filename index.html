@@ -507,17 +507,33 @@
   #cal-legend{margin-top:10px;font-size:.78rem;color:var(--muted);}
 
   /* ---------- Coloring ---------- */
-  #color-canvas-wrap{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:1/1;}
+  #color-canvas-viewport{
+    width:100%;max-width:420px;margin:0 auto;aspect-ratio:1/1;
+    overflow:auto;border-radius:16px;border:1px solid var(--border);
+    -webkit-overflow-scrolling:touch;background:#fff;
+  }
+  #color-canvas-wrap{position:relative;width:100%;aspect-ratio:1/1;}
   #paint-canvas,#lineart-canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:16px;}
   #lineart-canvas{pointer-events:none;}
-  #paint-canvas{background:#fff;touch-action:none;}
+  #paint-canvas{background:#fff;}
+  #zoom-controls{display:flex;gap:8px;align-items:center;justify-content:center;margin:10px 0 0;}
+  #zoom-controls button{
+    width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);
+    color:var(--accent-deep);font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  #zoom-controls button:disabled{opacity:.4;cursor:default;}
+  #zoom-level{font-size:.78rem;color:var(--muted);min-width:42px;text-align:center;}
   #palette{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;justify-content:center;}
   .swatch{
-    width:30px;height:30px;border-radius:50%;border:2px solid var(--border);cursor:pointer;
+    width:30px;height:30px;border-radius:50%;border:2px solid var(--border);cursor:pointer;flex:0 0 auto;
   }
   .swatch.active{outline:2px solid var(--accent-deep);outline-offset:2px;}
   #color-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;}
   #color-save-status{text-align:center;font-size:.78rem;color:var(--muted);min-height:1.2em;margin-top:8px;}
+  #progress-options{
+    text-align:center;background:var(--surface-2);border-radius:14px;padding:10px 14px;margin-top:10px;
+  }
+  #progress-options p{font-size:.78rem;color:var(--muted);margin:0 0 8px;}
 
   /* ---------- Coloring: choose-a-drawing picker ---------- */
   #coloring-picker{
@@ -545,7 +561,8 @@
     padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px;
   }
   .picker-item.active{border-color:var(--accent-deep);}
-  .picker-item img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:#fff;}
+  .picker-thumb-wrap{display:block;width:100%;}
+  .picker-thumb-img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:#fff;display:block;}
   .picker-item .picker-vector-icon{
     width:100%;aspect-ratio:1/1;border-radius:8px;background:#fff;display:flex;
     align-items:center;justify-content:center;font-size:1.8rem;
@@ -557,19 +574,6 @@
     font-size:.78rem;box-shadow:0 2px 6px rgba(0,0,0,.3);
   }
 
-  /* ---------- Coloring: continue-or-fresh prompt ---------- */
-  #continue-prompt{
-    position:fixed;inset:0;background:rgba(30,10,18,.72);
-    display:none;align-items:center;justify-content:center;padding:20px;z-index:65;
-  }
-  #continue-prompt.show{display:flex;}
-  .continue-box{
-    background:var(--surface);border-radius:20px;padding:22px;max-width:min(90vw,360px);
-    text-align:center;
-  }
-  #continue-prompt-title{font-weight:800;color:var(--accent-deep);margin:0 0 6px;}
-  #continue-prompt-sub{font-size:.82rem;color:var(--muted);margin:0 0 16px;}
-  .continue-actions{display:flex;flex-direction:column;gap:10px;}
 
   /* ---------- Watch ---------- */
   #watch-card{text-align:center;}
@@ -763,12 +767,20 @@
       <div class="card">
         <p class="eyebrow">Something to do when you're bored</p>
         <p class="muted" style="font-size:.85rem;margin-top:4px;margin-bottom:14px;" id="color-page-name"></p>
-        <div id="color-canvas-wrap">
-          <canvas id="paint-canvas" width="420" height="420"></canvas>
-          <canvas id="lineart-canvas" width="420" height="420"></canvas>
+        <div id="color-canvas-viewport">
+          <div id="color-canvas-wrap">
+            <canvas id="paint-canvas" width="420" height="420"></canvas>
+            <canvas id="lineart-canvas" width="420" height="420"></canvas>
+          </div>
+        </div>
+        <div id="zoom-controls">
+          <button id="zoom-out" type="button" aria-label="Zoom out">－</button>
+          <span id="zoom-level">100%</span>
+          <button id="zoom-in" type="button" aria-label="Zoom in">＋</button>
+          <button id="zoom-reset-btn" type="button" aria-label="Reset zoom">Reset</button>
         </div>
         <div id="palette"></div>
-        <p class="muted" style="font-size:.78rem;text-align:center;margin:2px 0 10px;">Tap a shape to fill it with the selected color ✨</p>
+        <p class="muted" style="font-size:.78rem;text-align:center;margin:2px 0 10px;">Tap a shape to fill it with the selected color ✨ (zoom in for small details)</p>
         <div id="color-controls">
           <button class="btn-ghost" id="color-shuffle" type="button">🔀 Shuffle</button>
           <button class="btn-ghost" id="color-choose" type="button">🖼 Choose</button>
@@ -776,6 +788,10 @@
           <button class="btn-ghost" id="color-clear" type="button">Clear page</button>
         </div>
         <p id="color-save-status"></p>
+        <div id="progress-options" hidden>
+          <p>You've already started coloring this one -- it's been continued automatically.</p>
+          <button class="btn-ghost" id="progress-start-fresh" type="button">🆕 Start fresh on this page instead</button>
+        </div>
       </div>
     </section>
 
@@ -856,18 +872,6 @@
       <button id="picker-close" type="button" aria-label="Close">✕</button>
     </div>
     <div id="picker-grid"></div>
-  </div>
-</div>
-
-<div id="continue-prompt" hidden>
-  <div class="continue-box">
-    <p id="continue-prompt-title">Continue this drawing?</p>
-    <p id="continue-prompt-sub">You've already started coloring this one.</p>
-    <div class="continue-actions">
-      <button class="btn-primary" id="continue-prompt-continue" type="button">🎨 Continue where I left off</button>
-      <button class="btn-ghost" id="continue-prompt-fresh" type="button">🆕 Start fresh</button>
-      <button class="btn-ghost" id="continue-prompt-cancel" type="button">Cancel</button>
-    </div>
   </div>
 </div>
 
@@ -3177,7 +3181,11 @@
     // { id: "butterfly1", name: "Butterfly", src: "https://example.com/butterfly-outline.png" }
   ];
 
-  var COLOR_PALETTE = ["#D6577A","#F3AFC2","#C24BB0","#5C86B8","#F4B93C","#6B8F5A","#B98A3C","#3A2230","#FFFFFF"];
+  var COLOR_PALETTE = [
+    "#E24B4B","#D6577A","#F3AFC2","#F2894E","#F4B93C","#F7DD6B",
+    "#8FCB8F","#6B8F5A","#2F6B4F","#4FA8A0","#8FD3F4","#5C86B8",
+    "#8B5FBF","#C24BB0","#B98A3C","#3A2230","#9AA0A6","#1A1A1A","#FFFFFF"
+  ];
 
   function buildColoringPages(){
     var list = [
@@ -3318,6 +3326,8 @@
       pageNameEl.textContent = page.name || "";
       clearPaintCanvas();
       drawPageLineArt(page);
+      resetZoom();
+      hideProgressOptions();
       var myToken = ++loadToken;
       if(!opts.startFresh){
         loadColoringProgress(page.id, function(dataUrl){
@@ -3325,32 +3335,56 @@
           var img = new Image();
           img.onload = function(){ if(myToken === loadToken) pctx.drawImage(img, 0, 0, W, H); };
           img.src = dataUrl;
+          showProgressOptions(page); // she already colored some of this -- offer a quiet way to start over
         });
       }
       highlightPicker();
     }
 
     // Checks which pages already have saved progress, for the little "in
-    // progress" badge in the picker. Firestore gives us the whole collection
-    // in one query; the localStorage fallback just checks each page in turn.
-    function loadAllProgressIds(cb){
+    // progress" badge and the preview thumbnail in the picker. Firestore
+    // gives us the whole collection in one query; the localStorage fallback
+    // just checks each page in turn. Returns a map of id -> saved dataUrl.
+    function loadAllProgressData(cb){
       if(firebaseReady && db){
         db.collection("coloring").get().then(function(snap){
-          var ids = {};
+          var map = {};
           snap.forEach(function(doc){
             var d = doc.data();
-            if(d && d.dataUrl) ids[doc.id] = true;
+            if(d && d.dataUrl) map[doc.id] = d.dataUrl;
           });
-          cb(ids);
-        }).catch(function(){ cb(localProgressIds()); });
+          cb(map);
+        }).catch(function(){ cb(localProgressData()); });
       } else {
-        cb(localProgressIds());
+        cb(localProgressData());
       }
     }
-    function localProgressIds(){
-      var ids = {};
-      pages.forEach(function(p){ if(safeGet(coloringLocalKey(p.id))) ids[p.id] = true; });
-      return ids;
+    function localProgressData(){
+      var map = {};
+      pages.forEach(function(p){ var v = safeGet(coloringLocalKey(p.id)); if(v) map[p.id] = v; });
+      return map;
+    }
+    // Composites a saved paint layer back together with its line art so the
+    // picker can show what she's actually colored, not just the blank outline.
+    function renderThumbnail(page, paintDataUrl, cb){
+      var tcanvas = document.createElement("canvas");
+      tcanvas.width = W; tcanvas.height = H;
+      var tctx = tcanvas.getContext("2d");
+      var paintImg = new Image();
+      paintImg.onload = function(){
+        tctx.drawImage(paintImg, 0, 0, W, H);
+        if(page.type === "vector"){
+          COLOR_VECTOR_TEMPLATES[page.id](tctx, W, H);
+          cb(tcanvas.toDataURL("image/png"));
+        } else {
+          var lineImg = new Image();
+          lineImg.onload = function(){ drawContain(tctx, lineImg, W, H); cb(tcanvas.toDataURL("image/png")); };
+          lineImg.onerror = function(){ cb(tcanvas.toDataURL("image/png")); };
+          lineImg.src = page.src;
+        }
+      };
+      paintImg.onerror = function(){ cb(null); };
+      paintImg.src = paintDataUrl;
     }
 
     function dailyDefaultPage(){
@@ -3370,11 +3404,14 @@
     });
 
     // ---- "Choose a drawing" picker ----
+    var pageDefaultThumbs = {}; // so a thumbnail can be reverted after "start fresh"
     pickerGrid.innerHTML = pages.map(function(p){
       var thumb = p.type === "image"
-        ? '<img src="'+p.src+'" alt="">'
+        ? '<img class="picker-thumb-img" src="'+p.src+'" alt="">'
         : '<div class="picker-vector-icon">'+(p.name||"").split(" ")[0]+'</div>';
-      return '<button class="picker-item" type="button" data-page-id="'+p.id+'">'+thumb+
+      pageDefaultThumbs[p.id] = thumb;
+      return '<button class="picker-item" type="button" data-page-id="'+p.id+'">'+
+        '<span class="picker-thumb-wrap">'+thumb+'</span>'+
         '<span class="picker-name">'+(p.name||"Drawing")+'</span></button>';
     }).join("");
     $all(".picker-item", pickerGrid).forEach(function(btn){
@@ -3383,11 +3420,7 @@
         if(!page) return;
         pickerOverlay.classList.remove("show");
         pickerOverlay.hidden = true;
-        if(btn.classList.contains("has-progress")){
-          openContinuePrompt(page);
-        } else {
-          switchToPage(page);
-        }
+        switchToPage(page); // continues automatically if she's already started it
       });
     });
 
@@ -3402,9 +3435,11 @@
     });
 
     function refreshProgressBadges(){
-      loadAllProgressIds(function(ids){
+      loadAllProgressData(function(map){
         $all(".picker-item", pickerGrid).forEach(function(btn){
-          var has = !!ids[btn.dataset.pageId];
+          var pageId = btn.dataset.pageId;
+          var dataUrl = map[pageId];
+          var has = !!dataUrl;
           btn.classList.toggle("has-progress", has);
           var badge = btn.querySelector(".progress-badge");
           if(has && !badge){
@@ -3415,37 +3450,69 @@
           } else if(!has && badge){
             badge.remove();
           }
+          var wrap = btn.querySelector(".picker-thumb-wrap");
+          if(has){
+            var page = pages.filter(function(p){ return p.id === pageId; })[0];
+            if(page){
+              renderThumbnail(page, dataUrl, function(thumbUrl){
+                if(!thumbUrl || !wrap) return;
+                wrap.innerHTML = '<img class="picker-thumb-img" src="'+thumbUrl+'" alt="">';
+              });
+            }
+          } else if(wrap && pageDefaultThumbs[pageId]){
+            wrap.innerHTML = pageDefaultThumbs[pageId];
+          }
         });
       });
     }
 
-    // ---- continue-or-fresh prompt ----
-    var continuePrompt = $("#continue-prompt");
-    var continuePromptPage = null;
-    function openContinuePrompt(page){
-      continuePromptPage = page;
-      $("#continue-prompt-title").textContent = "Continue \"" + (page.name || "this drawing") + "\"?";
-      continuePrompt.hidden = false;
-      continuePrompt.classList.add("show");
+    // ---- quiet "start fresh" option (shown below the controls when the
+    // current page already has saved progress -- continuing happens
+    // automatically, this is just an easy way to wipe it and start over) ----
+    var progressOptionsEl = $("#progress-options");
+    var progressOptionsPage = null;
+    function showProgressOptions(page){
+      progressOptionsPage = page;
+      progressOptionsEl.hidden = false;
     }
-    function closeContinuePrompt(){
-      continuePrompt.classList.remove("show");
-      continuePrompt.hidden = true;
-      continuePromptPage = null;
+    function hideProgressOptions(){
+      progressOptionsEl.hidden = true;
+      progressOptionsPage = null;
     }
-    $("#continue-prompt-continue").addEventListener("click", function(){
-      var page = continuePromptPage;
-      closeContinuePrompt();
-      if(page) switchToPage(page);
-    });
-    $("#continue-prompt-fresh").addEventListener("click", function(){
-      var page = continuePromptPage;
-      closeContinuePrompt();
+    $("#progress-start-fresh").addEventListener("click", function(){
+      var page = progressOptionsPage;
       if(!page) return;
       deleteColoringProgress(page.id);
       switchToPage(page, { startFresh:true });
+      showStatus("Started fresh 🆕");
     });
-    $("#continue-prompt-cancel").addEventListener("click", closeContinuePrompt);
+
+    // ---- zoom, so small details are easier to tap precisely ----
+    var ZOOM_LEVELS = [1, 1.5, 2, 2.5, 3];
+    var zoomIndex = 0;
+    var canvasViewport = $("#color-canvas-viewport");
+    var canvasWrapEl = $("#color-canvas-wrap");
+    function applyZoom(){
+      var z = ZOOM_LEVELS[zoomIndex];
+      canvasWrapEl.style.width = (z*100) + "%";
+      $("#zoom-level").textContent = Math.round(z*100) + "%";
+      $("#zoom-in").disabled = zoomIndex === ZOOM_LEVELS.length-1;
+      $("#zoom-out").disabled = zoomIndex === 0;
+    }
+    function resetZoom(){
+      zoomIndex = 0;
+      applyZoom();
+      canvasViewport.scrollLeft = 0;
+      canvasViewport.scrollTop = 0;
+    }
+    $("#zoom-in").addEventListener("click", function(){
+      if(zoomIndex < ZOOM_LEVELS.length-1){ zoomIndex++; applyZoom(); }
+    });
+    $("#zoom-out").addEventListener("click", function(){
+      if(zoomIndex > 0){ zoomIndex--; applyZoom(); }
+    });
+    $("#zoom-reset-btn").addEventListener("click", resetZoom);
+    applyZoom();
 
     $("#color-shuffle").addEventListener("click", function(){
       var others = pages.filter(function(p){ return !currentPage || p.id !== currentPage.id; });
@@ -3506,11 +3573,24 @@
 
       pctx.putImageData(imgData, 0, 0);
     }
+    // A real tap fills; a drag (used to pan around when zoomed in) does not.
+    var tapStart = null;
     paintCanvas.addEventListener("pointerdown", function(e){
-      var pos = posFromEvent(e);
-      floodFillAt(pos.x, pos.y, currentColor);
-      scheduleAutosave();
+      tapStart = { x:e.clientX, y:e.clientY, time:Date.now(), id:e.pointerId };
     });
+    paintCanvas.addEventListener("pointerup", function(e){
+      if(!tapStart || tapStart.id !== e.pointerId) return;
+      var dx = e.clientX - tapStart.x, dy = e.clientY - tapStart.y;
+      var moved = Math.sqrt(dx*dx + dy*dy);
+      var elapsed = Date.now() - tapStart.time;
+      tapStart = null;
+      if(moved < 10 && elapsed < 600){
+        var pos = posFromEvent(e);
+        floodFillAt(pos.x, pos.y, currentColor);
+        scheduleAutosave();
+      }
+    });
+    paintCanvas.addEventListener("pointercancel", function(){ tapStart = null; });
 
     switchToPage(dailyDefaultPage(), { skipFlush:true });
   }
